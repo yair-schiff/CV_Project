@@ -1,4 +1,5 @@
 .idea
 .DS_Store
+ljpeg/
 pytorch-mask-rcnn/
 case0029/
