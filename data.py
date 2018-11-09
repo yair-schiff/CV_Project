@@ -12,9 +12,9 @@ import sys
 import numpy as np
 
 # Global variables
-logger = logging.getLogger('data-prep-logger')
 logging.basicConfig(level=logging.INFO)
-logger.setLevel(level=logging.INFO)
+logger = logging.getLogger('data-prep-logger')
+# logger.setLevel(level=logging.INFO)
 IMG_ID = 0
 ANN_ID = 0
 
@@ -178,10 +178,14 @@ def get_polygon(chain_code):
     return tup_verts
 
 
-def flip_polygon(tup_verts):
-    width = len(tup_verts[0])
-    height = len(tup_verts)
-    for y in
+def flip_polygon(tup_verts, width):
+    midline = width // 2
+    flipped = []
+    for i in range(len(tup_verts)):
+        dist_to_mid = midline - tup_verts[i][0]
+        new_vert = midline + dist_to_mid, tup_verts[i][1]
+        flipped.append(new_vert)
+    return flipped
 
 
 def get_bbox(tup_verts):
@@ -199,13 +203,21 @@ def get_bbox(tup_verts):
     return [left_border, top_border, width, height]
 
 
+# TODO: Move this code to somewhere else like ddsm.py or model.py
+def get_mask(tup_verts, cat_id, height, width):
+    mask = np.zeros((height, width, 2))
+    for vert in tup_verts:
+        mask[vert[1], vert[0], cat_id - 1] = 1
+    return mask
+
+
 def get_cat(pathology):
     if "normal" in pathology:
-        return 1, "normal"
+        return 0, "normal"
     if "BENIGN" in pathology:
-        return 2, "benign"
+        return 1, "benign"
     if "MALIGNANT" in pathology:
-        return 3, "malignant"
+        return 2, "malignant"
 
 
 def create_json(json_name, img, ics_info, data_folder):
@@ -249,21 +261,23 @@ def create_json(json_name, img, ics_info, data_folder):
     annotations = []
     if ics_info[img]["overlay"]:
         for overlay in ics_info[img]["overlays"]:
-            category_id = get_cat(overlay["PATHOLOGY"])
+            category_id = get_cat(overlay["PATHOLOGY"])[0]
             birads_id = overlay["ASSESSMENT"]
             subtlety_id = overlay["SUBTLETY"]
             for outline in overlay["outlines"]:
-                segmentation = get_polygon(outline)
+                border = get_polygon(outline)
                 if "RIGHT" in json_name:
-                    segmentation = flip_polygon(segmentation)
-                bbox = get_bbox(segmentation)
+                    border = flip_polygon(border, ics_info[img]["W"])
+                bbox = get_bbox(border)
+                # segmentation = get_mask(border, category_id, ics_info[img]["H"], ics_info[img]["W"]).tolist()
                 annotation = {
                     "id": ann_id_increment(),
                     "image_id": IMG_ID,
                     "category_id": category_id,
                     "birads_id": birads_id,
                     "subtlety_id": subtlety_id,
-                    "segmentation": segmentation,
+                    # "segmentation": segmentation,
+                    "border": border,
                     "bbox": bbox,
                     "iscrowd": 0
                 }
