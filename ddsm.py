@@ -24,7 +24,7 @@ Usage: import the module (see Jupyter notebooks for examples), or run from
     # Continue training the last model you trained
     python3 ddsm.py train --dataset=/path/to/coco/ --model=last
 
-    # Run COCO evaluatoin on the last model you trained
+    # Run DDSM evaluatoin on the last model you trained
     python3 ddsm.py evaluate --dataset=/path/to/coco/ --model=last
 """
 
@@ -93,7 +93,7 @@ class DDSMConfig(Config):
 ############################################################
 
 class DDSMDataset(utils.Dataset):
-    def load_ddsm(self, dataset_dir, subset, class_ids=None, return_coco=False, auto_download=False):
+    def load_ddsm(self, dataset_dir, subset, class_ids=None, return_ddsm=False, auto_download=False):
         """Load a subset of the DDSM dataset.
         dataset_dir: The root directory of the DDSM dataset.
         subset: What to load (train, val, minival, valminusminival)
