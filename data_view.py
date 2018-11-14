@@ -18,11 +18,20 @@ def create_border(tup_verts, fill=False, alpha=1):
     return patches.Polygon(np.array(tup_verts), closed=False, fill=fill, alpha=alpha, color='r')
 
 
-def get_mask(tup_verts, height, width):
+def get_mask(tup_verts, height, width, classification):
+    label = int(classification)
     mask = np.zeros((height, width))
     np_verts = np.array([tup_verts], dtype=np.int32)
     cv2.fillPoly(mask, np_verts, 1)
-    cv2.flip(mask, 0, mask)
+    mask_for_model = np.zeros((height, width, 3), dtype=np.uint8)
+    # f = open("mask.txt", "w")
+    for row in range(height):
+        for col in range(width):
+            mask_for_model[row, col, label] = mask[row, col]
+            # f.write("[" + str(mask_for_model[row, col, 0]) + ", " + str(mask_for_model[row, col, 1]) + ", "
+            #             + str(mask_for_model[row, col, 2]) + "]")
+        # f.write("\n")
+    # f.close()
     return mask
 
 
@@ -40,8 +49,11 @@ def image_display(img_file, json_file):
         ax.annotate(json_dict["categories"][ann["category_id"]]["name"],
                     (ann["bbox"][0] - 50, ann["bbox"][1]+ann["bbox"][3]))
         plt.show()
-        mask = get_mask(ann["border"], json_dict["images"][0]["height"], json_dict["images"][0]["width"])
+        mask = get_mask(ann["border"], json_dict["images"][0]["height"], json_dict["images"][0]["width"],
+                        ann["category_id"])
         plt.imshow(mask, cmap=plt.cm.gray)
+        bottom, top = plt.ylim()
+        plt.ylim(top, bottom)
         plt.show()
 
 
