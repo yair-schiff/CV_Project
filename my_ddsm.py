@@ -129,7 +129,7 @@ class DDSMDataset(utils.Dataset):
                     height=ann_dict['images'][0]["height"],
                     annotations=ann_dict["annotations"])
 
-    def load_mask(self, annotation_path):
+    def load_mask(self, image_id):
         """Load instance masks for the given image.
 
         load instance masks and return them in the form of am
@@ -140,17 +140,12 @@ class DDSMDataset(utils.Dataset):
             one mask per instance.
         class_ids: a 1D array of class IDs of the instance masks.
         """
-        ann_dict = None
-        with open(annotation_path, 'r') as file:
-            ann_dict = json.loads(file.read())
-
-        if ann_dict is None:
-            return super(DDSMDataset, self).load_mask(None)
+        image_info = self.image_info[image_id]
 
         instance_masks = []
         class_ids = []
-        for ann in ann_dict['annotations']:
-            mask = np.zeros((ann_dict['images'][0]['height'], ann_dict['images'][0]['width']))
+        for ann in image_info['annotations']:
+            mask = np.zeros((image_info['height'], image_info['width']))
             np_verts = np.array([ann['border']], dtype=np.int32)
             cv2.fillPoly(mask, np_verts, 1)
             instance_masks.append(mask)
