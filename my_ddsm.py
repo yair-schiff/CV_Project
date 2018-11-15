@@ -59,7 +59,7 @@ import torch
 ROOT_DIR = os.getcwd()
 
 # # Path to trained weights file
-# COCO_MODEL_PATH = os.path.join(ROOT_DIR, "mask_rcnn_coco.pth")
+COCO_MODEL_PATH = os.path.join(ROOT_DIR, "mask_rcnn_coco.pth")
 
 # Directory to save logs and model checkpoints, if not provided
 # through the command line argument --logs
@@ -267,9 +267,9 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', required=True,
                         metavar="/path/to/ddsm/",
                         help='Directory of the DDSM dataset')
-    # parser.add_argument('--model', required=False,
-    #                     metavar="/path/to/weights.pth",
-    #                     help="Path to weights .pth file or 'ddsm'")
+    parser.add_argument('--model', required=False,
+                        metavar="/path/to/weights.pth",
+                        help="Path to weights .pth file or 'ddsm'")
     parser.add_argument('--logs', required=False,
                         default=DEFAULT_LOGS_DIR,
                         metavar="/path/to/logs/",
@@ -319,21 +319,19 @@ if __name__ == '__main__':
     
     However we can pass in the imagenet weights if we don't wanna train from the beginning
     """
-    # Select weights file to load
-    # if args.model:
-    #     if args.model.lower() == "coco":
-    #         model_path = COCO_MODEL_PATH
-    #     elif args.model.lower() == "last":
-    #         # Find last trained weights
-    #         model_path = model.find_last()[1]
-    #     elif args.model.lower() == "imagenet":
-    #         # Start from ImageNet trained weights
-    #         model_path = config.IMAGENET_MODEL_PATH
-    #     else:
-    #         model_path = args.model
-    # else:
-    #     model_path = ""
-    model_path = ""
+    if args.model:
+        if args.model.lower() == "coco":
+            model_path = COCO_MODEL_PATH
+        elif args.model.lower() == "last":
+            # Find last trained weights
+            model_path = model.find_last()[1]
+        elif args.model.lower() == "imagenet":
+            # Start from ImageNet trained weights
+            model_path = config.IMAGENET_MODEL_PATH
+        else:
+            model_path = args.model
+    else:
+        model_path = ""
 
     # Load weights
     print("Loading weights ", model_path)
@@ -362,21 +360,21 @@ if __name__ == '__main__':
                     epochs=40,
                     layers='heads')
 
-        # Training - Stage 2
-        # Finetune layers from ResNet stage 4 and up
-        print("Fine tune Resnet stage 4 and up")
-        model.train_model(dataset_train, dataset_val,
-                    learning_rate=config.LEARNING_RATE,
-                    epochs=120,
-                    layers='4+')
-
-        # Training - Stage 3
-        # Fine tune all layers
-        print("Fine tune all layers")
-        model.train_model(dataset_train, dataset_val,
-                    learning_rate=config.LEARNING_RATE / 10,
-                    epochs=160,
-                    layers='all')
+        # # Training - Stage 2
+        # # Finetune layers from ResNet stage 4 and up
+        # print("Fine tune Resnet stage 4 and up")
+        # model.train_model(dataset_train, dataset_val,
+        #             learning_rate=config.LEARNING_RATE,
+        #             epochs=120,
+        #             layers='4+')
+        #
+        # # Training - Stage 3
+        # # Fine tune all layers
+        # print("Fine tune all layers")
+        # model.train_model(dataset_train, dataset_val,
+        #             learning_rate=config.LEARNING_RATE / 10,
+        #             epochs=160,
+        #             layers='all')
 
     elif args.command == "evaluate":
         # Validation dataset
