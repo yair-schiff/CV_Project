@@ -29,6 +29,7 @@ Usage: import the module (see Jupyter notebooks for examples), or run from
 
 import os
 import time
+import json
 import numpy as np
 
 # Download and install the Python COCO tools from https://github.com/waleedka/coco
@@ -37,6 +38,9 @@ import numpy as np
 # I submitted a pull request https://github.com/cocodataset/cocoapi/pull/50
 # If the PR is merged then use the original repo.
 # Note: Edit PythonAPI/Makefile and replace "python" with "python3".
+
+import cv2
+
 from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 from pycocotools import mask as maskUtils
@@ -82,8 +86,8 @@ class DDSMConfig(Config):
     # Uncomment to train on 8 GPUs (default is 1)
     # GPU_COUNT = 8
 
-    # Number of classes (including background)
-    NUM_CLASSES = 1 + 2  # benign, malignant
+    # Number of classes
+    NUM_CLASSES = 3  # normal, benign, malignant
 
 
 ############################################################
@@ -91,16 +95,15 @@ class DDSMConfig(Config):
 ############################################################
 
 class DDSMDataset(utils.Dataset):
-    def load_ddsm(self, dataset_dir, subset, return_ddsm=False):
+    def load_ddsm(self, dataset_dir, subset):
         """Load a subset of the DDSM dataset.
         dataset_dir: The root directory of the DDSM dataset.
-        subset: What to load (train, val, minival, valminusminival)
+        subset: What to load (train, val)
         return_ddsm: If True, returns the ddsm object.
         """
-        ddsm = COCO("{}/annotations/instances_{}.json".format(dataset_dir, subset))
-        if subset == "minival" or subset == "valminusminival":
-            subset = "val"
-        image_dir = "{}/{}".format(dataset_dir, subset)
+        subset_dir = '{}/{}'.format(dataset_dir, subset)
+        image_dir = '{}/images'.format(subset_dir)
+        annotations_dir = '{}/annotations'.format(subset_dir)
 
         """
         For this function to work:
@@ -111,29 +114,22 @@ class DDSMDataset(utils.Dataset):
           in that subset (os.walk)
         - We also load in the annotations as well (seems to want an array? coco.loadAnns)
         """
+        class_ids = ['normal', 'benign', 'malignant']
 
-        # need to assign image ids: coco.getImgIds(catIds=[id])
-        image_ids = [1, 2, 3, 4, 5]
-
-        # add classes
-        class_ids = ['background', 'benign', 'malignant']
-
-        for i in range(1, len(class_ids)):
+        for i in range(0, len(class_ids)):
             self.add_class("ddsm", i, class_ids[i])
 
-        # Add images (replace with os.walk thru dir)
-        for i in image_ids:
-            self.add_image(
-                "ddsm", image_id=i,
-                path=os.path.join(image_dir, coco.imgs[i]['file_name']),
-                width=coco.imgs[i]["width"],
-                height=coco.imgs[i]["height"],
-                annotations=coco.loadAnns(coco.getAnnIds(
-                    imgIds=[i], catIds=class_ids, iscrowd=None)))
-        if return_ddsm:
-            return ddsm
+        for filename in os.listdir(annotations_dir):
+            with open(filename, 'r') as file:
+                ann_dict = json.loads(file.read())
+                self.add_image(
+                    "ddsm", image_id=os.path.join(annotations_dir, filename),
+                    path=os.path.join(image_dir, f"{ann_dict['images'][0]['file_name']}.jpeg"),
+                    width=ann_dict['images'][0]["width"],
+                    height=ann_dict['images'][0]["height"],
+                    annotations=ann_dict['images'][0]["annotations"])
 
-    def load_mask(self, image_id):
+    def load_mask(self, annotation_path):
         """Load instance masks for the given image.
 
         load instance masks and return them in the form of am
@@ -144,37 +140,21 @@ class DDSMDataset(utils.Dataset):
             one mask per instance.
         class_ids: a 1D array of class IDs of the instance masks.
         """
+        ann_dict = None
+        with open(annotation_path, 'r') as file:
+            ann_dict = json.loads(file.read())
+
+        if ann_dict is None:
+            return super(DDSMDataset, self).load_mask(None)
+
         instance_masks = []
         class_ids = []
-        image_info = self.image_info[image_id]
-        annotations = image_info["annotations"]
-
-        """
-        Replace this function with Yair's annotation to mask code
-        """
-
-        # Build mask of shape [height, width, instance_count] and list
-        # of class IDs that correspond to each channel of the mask.
-        for annotation in annotations:
-            class_id = self.map_source_class_id(
-                "coco.{}".format(annotation['category_id']))
-            if class_id:
-                m = self.annToMask(annotation, image_info["height"],
-                                   image_info["width"])
-                # Some objects are so small that they're less than 1 pixel area
-                # and end up rounded out. Skip those objects.
-                if m.max() < 1:
-                    continue
-                # Is it a crowd? If so, use a negative class ID.
-                if annotation['iscrowd']:
-                    # Use negative class ID for crowds
-                    class_id *= -1
-                    # For crowd masks, annToMask() sometimes returns a mask
-                    # smaller than the given dimensions. If so, resize it.
-                    if m.shape[0] != image_info["height"] or m.shape[1] != image_info["width"]:
-                        m = np.ones([image_info["height"], image_info["width"]], dtype=bool)
-                instance_masks.append(m)
-                class_ids.append(class_id)
+        for ann in ann_dict['annotations']:
+            mask = np.zeros((ann_dict['images'][0]['height'], ann_dict['images'][0]['width']))
+            np_verts = np.array([ann['border']], dtype=np.int32)
+            cv2.fillPoly(mask, np_verts, 1)
+            instance_masks.append(mask)
+            class_ids.append(ann['category_id'])
 
         # Pack instance masks into an array
         if class_ids:
@@ -183,22 +163,20 @@ class DDSMDataset(utils.Dataset):
             return mask, class_ids
         else:
             # Call super class to return an empty mask
-            return super(DDSMDataset, self).load_mask(image_id)
+            return super(DDSMDataset, self).load_mask(None)
 
 
 ############################################################
 #  DDSM Evaluation
 ############################################################
 
-def build_ddsm_results(dataset, image_ids, rois, class_ids, scores, masks):
-    """Arrange results to match COCO specs in http://cocodataset.org/#format
-    """
+def build_ddsm_results(dataset, ann_paths, rois, class_ids, scores, masks):
     # If no results, return an empty list
     if rois is None:
         return []
 
     results = []
-    for image_id in image_ids:
+    for ann_path in ann_paths:
         # Loop through detections
         for i in range(rois.shape[0]):
             class_id = class_ids[i]
@@ -207,55 +185,56 @@ def build_ddsm_results(dataset, image_ids, rois, class_ids, scores, masks):
             mask = masks[:, :, i]
 
             result = {
-                "image_id": image_id,
+                "ann_path": ann_path,
                 "category_id": dataset.get_source_class_id(class_id, "ddsm"),
                 "bbox": [bbox[1], bbox[0], bbox[3] - bbox[1], bbox[2] - bbox[0]],
                 "score": score,
-                "segmentation": maskUtils.encode(np.asfortranarray(mask))
+                "segmentation": mask
             }
             results.append(result)
     return results
 
 
-def evaluate_ddsm(model, dataset, ddsm, eval_type="bbox", limit=0, image_ids=None):
+def evaluate_ddsm(model, dataset, eval_type="bbox", limit=0):
     """Runs official evaluation.
     dataset: A Dataset object with validation data
     eval_type: "bbox" or "segm" for bounding box or segmentation evaluation
     limit: if not 0, it's the number of images to use for evaluation
     """
-    # Pick images from the dataset
-    image_ids = image_ids or dataset.image_ids
-
-    # Limit to a subset
-    if limit:
-        image_ids = image_ids[:limit]
-
-    # Get corresponding image IDs.
-    ddsm_image_ids = [dataset.image_info[id]["id"] for id in image_ids]
-
-    t_prediction = 0
-    t_start = time.time()
-
-    results = []
-    for i, image_id in enumerate(image_ids):
-        # Load image
-        image = dataset.load_image(image_id)
-
-        # Run detection
-        t = time.time()
-        r = model.detect([image])[0]
-        t_prediction += (time.time() - t)
-
-        # Convert results to COCO format
-        image_results = build_ddsm_results(dataset, ddsm_image_ids[i:i + 1],
-                                           r["rois"], r["class_ids"],
-                                           r["scores"], r["masks"])
-        results.extend(image_results)
-
-    """
-    Will have to create our own official evaluation method. This specifically relies on the images
-    being from the COCO dataset (99% sure)
-    """
+    pass
+    # # Pick images from the dataset
+    # image_ids = image_ids or dataset.image_ids
+    #
+    # # Limit to a subset
+    # if limit:
+    #     image_ids = image_ids[:limit]
+    #
+    # # Get corresponding image IDs.
+    # ddsm_image_ids = [dataset.image_info[id]["id"] for id in image_ids]
+    #
+    # t_prediction = 0
+    # t_start = time.time()
+    #
+    # results = []
+    # for i, image_id in enumerate(image_ids):
+    #     # Load image
+    #     image = dataset.load_image(image_id)
+    #
+    #     # Run detection
+    #     t = time.time()
+    #     r = model.detect([image])[0]
+    #     t_prediction += (time.time() - t)
+    #
+    #     # Convert results to COCO format
+    #     image_results = build_ddsm_results(dataset, ddsm_image_ids[i:i + 1],
+    #                                        r["rois"], r["class_ids"],
+    #                                        r["scores"], r["masks"])
+    #     results.extend(image_results)
+    #
+    # """
+    # Will have to create our own official evaluation method. This specifically relies on the images
+    # being from the COCO dataset (99% sure)
+    # """
     # # Load results. This modifies results with additional attributes.
     # coco_results = coco.loadRes(results)
     #
@@ -265,10 +244,10 @@ def evaluate_ddsm(model, dataset, ddsm, eval_type="bbox", limit=0, image_ids=Non
     # cocoEval.evaluate()
     # cocoEval.accumulate()
     # cocoEval.summarize()
-
-    print("Prediction time: {}. Average {}/image".format(
-        t_prediction, t_prediction / len(image_ids)))
-    print("Total time: ", time.time() - t_start)
+    #
+    # print("Prediction time: {}. Average {}/image".format(
+    #     t_prediction, t_prediction / len(image_ids)))
+    # print("Total time: ", time.time() - t_start)
 
 
 ############################################################
@@ -402,11 +381,11 @@ if __name__ == '__main__':
     elif args.command == "evaluate":
         # Validation dataset
         dataset_val = DDSMDataset()
-        ddsm_val = dataset_val.load_ddsm(args.dataset, "minival", return_ddsm=True)
+        dataset_val.load_ddsm(args.dataset, "minival")
         dataset_val.prepare()
         print("Running DDSM evaluation on {} images.".format(args.limit))
-        evaluate_ddsm(model, dataset_val, ddsm_val, "bbox", limit=int(args.limit))
-        evaluate_ddsm(model, dataset_val, ddsm_val, "segm", limit=int(args.limit))
+        evaluate_ddsm(model, dataset_val, "bbox", limit=int(args.limit))
+        evaluate_ddsm(model, dataset_val, "segm", limit=int(args.limit))
     else:
         print("'{}' is not recognized. "
               "Use 'train' or 'evaluate'".format(args.command))
