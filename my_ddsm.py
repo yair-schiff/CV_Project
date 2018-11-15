@@ -120,7 +120,7 @@ class DDSMDataset(utils.Dataset):
             self.add_class("ddsm", i, class_ids[i])
 
         for filename in os.listdir(annotations_dir):
-            with open(filename, 'r') as file:
+            with open(os.path.join(annotations_dir, filename), 'r') as file:
                 ann_dict = json.loads(file.read())
                 self.add_image(
                     "ddsm", image_id=os.path.join(annotations_dir, filename),
