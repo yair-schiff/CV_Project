@@ -127,7 +127,7 @@ class DDSMDataset(utils.Dataset):
                     path=os.path.join(image_dir, f"{ann_dict['images'][0]['file_name']}.jpeg"),
                     width=ann_dict['images'][0]["width"],
                     height=ann_dict['images'][0]["height"],
-                    annotations=ann_dict['images'][0]["annotations"])
+                    annotations=ann_dict["annotations"])
 
     def load_mask(self, annotation_path):
         """Load instance masks for the given image.
