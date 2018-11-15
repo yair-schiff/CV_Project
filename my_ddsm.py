@@ -343,12 +343,12 @@ if __name__ == '__main__':
         # validation set, as as in the Mask RCNN paper.
         dataset_train = DDSMDataset()
         dataset_train.load_ddsm(args.dataset, "train")
-        dataset_train.load_ddsm(args.dataset, "valminusminival")
+        # dataset_train.load_ddsm(args.dataset, "val")
         dataset_train.prepare()
 
         # Validation dataset
         dataset_val = DDSMDataset()
-        dataset_val.load_ddsm(args.dataset, "minival")
+        dataset_val.load_ddsm(args.dataset, "val")
         dataset_val.prepare()
 
         # *** This training schedule is an example. Update to your needs ***
