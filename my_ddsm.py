@@ -124,7 +124,7 @@ class DDSMDataset(utils.Dataset):
                 ann_dict = json.loads(file.read())
                 self.add_image(
                     "ddsm", image_id=os.path.join(annotations_dir, filename),
-                    path=os.path.join(image_dir, f"{ann_dict['images'][0]['file_name']}.jpeg"),
+                    path=os.path.join(image_dir, f"{ann_dict['images'][0]['file_name']}.jpg"),
                     width=ann_dict['images'][0]["width"],
                     height=ann_dict['images'][0]["height"],
                     annotations=ann_dict["annotations"])
