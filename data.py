@@ -242,17 +242,17 @@ def create_json(json_name, img, ics_info, data_folder):
     # ]
     categories = [
         {
-            'id': 1,
+            'id': 0,
             'name': 'normal',
             'supercategory': 'normal',
         },
         {
-            'id': 2,
+            'id': 1,
             'name': 'benign',
             'supercategory': 'tumor',
         },
         {
-            'id': 3,
+            'id': 2,
             'name': 'malignant',
             'supercategory': 'tumor',
         },
