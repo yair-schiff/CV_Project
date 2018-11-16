@@ -2,5 +2,4 @@
 .DS_Store
 ljpeg/
 pytorch-mask-rcnn/
-cases/
-data/
+data/train/_old

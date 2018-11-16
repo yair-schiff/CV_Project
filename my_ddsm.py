@@ -374,7 +374,7 @@ if __name__ == '__main__':
     elif args.command == "evaluate":
         # Validation dataset
         dataset_val = DDSMDataset()
-        dataset_val.load_ddsm(args.dataset, "minival")
+        dataset_val.load_ddsm(args.dataset, "val")
         dataset_val.prepare()
         print("Running DDSM evaluation on {} images.".format(args.limit))
         evaluate_ddsm(model, dataset_val, "bbox", limit=int(args.limit))

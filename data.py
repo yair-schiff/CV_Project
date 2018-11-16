@@ -49,7 +49,7 @@ def read_ics(case_folder):
                     year = line[-1]
                     month = ("0" + line[-3]) if len(line[-3]) == 1 else line[-3]
                     day = ("0" + line[-2]) if len(line[-2]) == 1 else line[-2]
-                    data_dict["date"] = year + month + day
+                    data_dict["date"] = "{}-{}-{}".format(year, month, day)
                 continue
             dims_dict["H"] = int(line[2])
             dims_dict["W"] = int(line[4])
@@ -76,7 +76,7 @@ def read_compressed_image(path):
     W = int(m.group(3))
     H = int(m.group(4))
     assert C == 1
-    im = np.fromfile(file, dtype='uint16').reshape(H, W)
+    im = np.fromfile(file, dtype="uint16").reshape(H, W)
     L = im >> 8
     H = im & 0xFF
     im = (H << 8) | L
@@ -85,10 +85,10 @@ def read_compressed_image(path):
 
 
 def ljpeg_emulator(ljpeg_path, ics_dict, data_folder, img_format='.jpg', normalize=True, verify=False, scale=None):
-    assert 'LJPEG' in ljpeg_path
-    stem = os.path.splitext(ljpeg_path)[0]
-    name = ljpeg_path.split('.')[-2]
-    output_file = stem.split("/")[-1] + img_format
+    assert "LJPEG" in ljpeg_path
+    name = ljpeg_path.split(".")[-2]
+    img_id = img_id_increment()
+    output_file = "{:08d}{}".format(img_id, img_format)
     image = read_compressed_image(ljpeg_path)
     reshape = False
     if ics_dict[name]["W"] != image.shape[1]:
@@ -118,6 +118,7 @@ def ljpeg_emulator(ljpeg_path, ics_dict, data_folder, img_format='.jpg', normali
             logger.info('Verification successful, conversion is lossless')
         else:
             logger.error('Verification failed: %s' % ljpeg_path)
+    return img_id
 
 
 def read_overlay(overlay_path):
@@ -142,7 +143,6 @@ def read_overlay(overlay_path):
         for outline in range(1, total_outlines + 1):
             out = list(map(int, lines[line_offset + 6 + outline*2].split(" ")[:-1]))
             outlines.append(out)
-
         abnormality_dict["outlines"] = outlines
         overlays.append(abnormality_dict)
         line_offset += 6 + 1 + total_outlines * 2
@@ -203,14 +203,6 @@ def get_bbox(tup_verts):
     return [left_border, top_border, width, height]
 
 
-# TODO: Move this code to somewhere else like ddsm.py or model.py
-def get_mask(tup_verts, cat_id, height, width):
-    mask = np.zeros((height, width, 2))
-    for vert in tup_verts:
-        mask[vert[1], vert[0], cat_id - 1] = 1
-    return mask
-
-
 def get_cat(pathology):
     if "normal" in pathology:
         return 0, "normal"
@@ -220,26 +212,63 @@ def get_cat(pathology):
         return 2, "malignant"
 
 
-def create_json(json_name, img, ics_info, data_folder):
-    info = {
-        "version": ics_info["version"],
-        "description": "Digital Database for Screening Mammography (DDSM)",
-        "url": "http://marathon.csee.usf.edu/Mammography/Database.html",
-        "date_created": ics_info["date"],
+def create_image_json(img_id, img, ddsm_file_name, ics_info, img_format=".jpg"):
+    file_name = "{:08d}{}".format(img_id, img_format)
+    image_json = {
+        "license": 1,
+        "file_name": file_name,
+        "ddsm_name": ddsm_file_name,
+        "height": ics_info[img]["H"],
+        "width": ics_info[img]["W"],
+        "date_captured": ics_info["date"],
+        "id": img_id,
         "patient_age": ics_info["patient_age"]
     }
-    images = [{
-        "id": img_id_increment(),
-        "width": ics_info[img]["W"],
-        "height": ics_info[img]["H"],
-        "file_name": json_name,
-        "license": 1
-    }]
-    # licenses = [{
-    #     "id": 1,
-    #     "name": "The MIT License (MIT)",
-    #     "url": "https://opensource.org/licenses/MIT"}
-    # ]
+    return image_json
+
+
+def create_annotation_json(img_id, img, ics_info, flip=False):
+    annotations = []
+    if ics_info[img]["overlay"]:
+        for overlay in ics_info[img]["overlays"]:
+            category_id = get_cat(overlay["PATHOLOGY"])[0]
+            birads_id = overlay["ASSESSMENT"]
+            subtlety_id = overlay["SUBTLETY"]
+            for outline in overlay["outlines"]:
+                border = get_polygon(outline)
+                if flip:
+                    border = flip_polygon(border, ics_info[img]["W"])
+                bbox = get_bbox(border)
+                annotation = {
+                    "id": ann_id_increment(),
+                    "image_id": img_id,
+                    "category_id": category_id,
+                    "birads_id": birads_id,
+                    "subtlety_id": subtlety_id,
+                    "segmentation": border,
+                    "bbox": bbox,
+                    "iscrowd": 0
+                }
+                annotations.append(annotation)
+    return annotations
+
+
+def create_instances_json(images, annotations, data_folder):
+    info = {
+        "description": "Digital Database for Screening Mammography (DDSM)",
+        "url": "http://marathon.csee.usf.edu/Mammography/Database.html",
+        "version": "1.0",
+        "year": 2018,
+        "contributor": "yair-schiff",
+        "date_created": "2018/11/15"
+    }
+    licenses = [
+        {
+            "id": 1,
+            "name": "Dummy license",
+            "url": "dummy_license_url"
+        }
+    ]
     categories = [
         {
             'id': 0,
@@ -257,51 +286,29 @@ def create_json(json_name, img, ics_info, data_folder):
             'supercategory': 'tumor',
         },
     ]
-
-    annotations = []
-    if ics_info[img]["overlay"]:
-        for overlay in ics_info[img]["overlays"]:
-            category_id = get_cat(overlay["PATHOLOGY"])[0]
-            birads_id = overlay["ASSESSMENT"]
-            subtlety_id = overlay["SUBTLETY"]
-            for outline in overlay["outlines"]:
-                border = get_polygon(outline)
-                if "RIGHT" in json_name:
-                    border = flip_polygon(border, ics_info[img]["W"])
-                bbox = get_bbox(border)
-                # segmentation = get_mask(border, category_id, ics_info[img]["H"], ics_info[img]["W"]).tolist()
-                annotation = {
-                    "id": ann_id_increment(),
-                    "image_id": IMG_ID,
-                    "category_id": category_id,
-                    "birads_id": birads_id,
-                    "subtlety_id": subtlety_id,
-                    # "segmentation": segmentation,
-                    "border": border,
-                    "bbox": bbox,
-                    "iscrowd": 0
-                }
-                annotations.append(annotation)
-    img_dict = {
+    instances_json = {
         "info": info,
+        "licenses": licenses,
         "images": images,
         "annotations": annotations,
-        # "license" = licenses,
         "categories": categories
     }
 
-    json_file = os.path.join(data_folder, json_name + ".json")
+    json_file = os.path.join(data_folder, "instances_train.json")
     with open(json_file, 'w') as fp:
-        json.dump(img_dict, fp)
+        json.dump(instances_json, fp)
 
 
 def read_case(case_folder, data_folder):
     ics_dict = read_ics(case_folder)
-    img_prefix = ""
+    images = []
+    annotations = []
     for f in os.listdir(case_folder):
         if "LJPEG" in f:
-            img_prefix = f.split(".")[0]
-            ljpeg_emulator(os.path.join(case_folder, f), ics_dict, os.path.join(data_folder, "images"))
+            img_id = ljpeg_emulator(os.path.join(case_folder, f), ics_dict, os.path.join(data_folder, "images"))
+            f_split = f.split(".")
+            ddsm_file_name = "{}.{}".format(f_split[0], f_split[1])
+            images.append(create_image_json(img_id, f_split[1 ], ddsm_file_name, ics_dict))
         elif "OVERLAY" in f and ics_dict[f.split(".")[1]]["overlay"]:
             ics_dict[f.split(".")[1]]["overlays"] = read_overlay(os.path.join(case_folder, f))
         else:
@@ -309,8 +316,8 @@ def read_case(case_folder, data_folder):
 
     for instance in ics_dict:
         if instance != "version" and instance != "patient_age" and instance != "date":
-            json_name = img_prefix + "." + instance
-            create_json(json_name, instance, ics_dict, os.path.join(data_folder, "annotations"))
+            annotations += create_annotation_json(img_id, instance, ics_dict, "RIGHT" in instance)
+    return images, annotations
 
 
 def main():
@@ -330,6 +337,9 @@ def main():
     logger.propagate = args.enable_log == "n"
     logger.disabled = args.enable_log == "n"
 
+    images = []
+    annotations = []
+
     if not os.path.exists(cases_folder):
         raise (RuntimeError("Could not find " + cases_folder +
                             ', please download data from ftp://figment.csee.usf.edu/pub/DDSM/'))
@@ -337,19 +347,23 @@ def main():
     if not os.path.exists(data_folder):
         logger.warning("Could not find " + data_folder + ". Creating new folder and processing data")
         os.mkdir(data_folder)
-        os.mkdir(os.path.join(data_folder, "train"))
-        os.mkdir(os.path.join(data_folder, "train/images"))
-        os.mkdir(os.path.join(data_folder, "train/annotations"))
+        if not os.path.exists(os.path.join(data_folder, "annotations")):
+            os.mkdir(os.path.join(data_folder, "annotations"))
+        if not os.path.exists(os.path.join(data_folder, "train")):
+            os.mkdir(os.path.join(data_folder, "train"))
+        if not os.path.exists(os.path.join(data_folder, "train/images")):
+            os.mkdir(os.path.join(data_folder, "train/images"))
     for category in os.listdir(cases_folder):  # walk down categories (benign, malignant, normal)
         if os.path.isdir(os.path.join(cases_folder, category)):  # skip .DS_Store and other non-directory files
             for case in os.listdir(os.path.join(cases_folder, category)):  # walk down cases
                 if os.path.isdir(os.path.join(cases_folder, category, case)):
                     for case_folder in os.listdir(os.path.join(cases_folder, category, case)):
                         if os.path.isdir(os.path.join(cases_folder, category, case, case_folder)):
-                            read_case(os.path.join(cases_folder, category, case, case_folder),
-                                      os.path.join(data_folder, "train"))
-    # else:
-    #     logger.info(data_folder + " already exists. Data processing assumed to have occurred already.")
+                            ims, anns = read_case(os.path.join(cases_folder, category, case, case_folder),
+                                                  os.path.join(data_folder, "train"))
+                            images += ims
+                            annotations += anns
+    create_instances_json(images, annotations, os.path.join(data_folder, "annotations"))
 
 
 if __name__ == "__main__":
