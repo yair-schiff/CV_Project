@@ -347,12 +347,16 @@ def main():
     if not os.path.exists(data_folder):
         logger.warning("Could not find " + data_folder + ". Creating new folder and processing data")
         os.mkdir(data_folder)
-        if not os.path.exists(os.path.join(data_folder, "annotations")):
-            os.mkdir(os.path.join(data_folder, "annotations"))
-        if not os.path.exists(os.path.join(data_folder, "train")):
-            os.mkdir(os.path.join(data_folder, "train"))
-        if not os.path.exists(os.path.join(data_folder, "train/images")):
-            os.mkdir(os.path.join(data_folder, "train/images"))
+    if not os.path.exists(os.path.join(data_folder, "annotations")):
+        os.mkdir(os.path.join(data_folder, "annotations"))
+    if not os.path.exists(os.path.join(data_folder, "train")):
+        os.mkdir(os.path.join(data_folder, "train"))
+    if not os.path.exists(os.path.join(data_folder, "train/images")):
+        os.mkdir(os.path.join(data_folder, "train/images"))
+    if not os.path.exists(os.path.join(data_folder, "val")):
+        os.mkdir(os.path.join(data_folder, "val"))
+    if not os.path.exists(os.path.join(data_folder, "val/images")):
+        os.mkdir(os.path.join(data_folder, "val/images"))
     for category in os.listdir(cases_folder):  # walk down categories (benign, malignant, normal)
         if os.path.isdir(os.path.join(cases_folder, category)):  # skip .DS_Store and other non-directory files
             for case in os.listdir(os.path.join(cases_folder, category)):  # walk down cases
