@@ -31,8 +31,10 @@ def image_display(img_id, img_file, json_file):
         ax.imshow(img, cmap=plt.cm.gray, interpolation='none', extent=extent)
     print("Image has {} annotations.".format(len(annotations)))
     for ann in annotations:
-        ax.add_patch(create_box(ann["bbox"][0], ann["bbox"][1], ann["bbox"][2], ann["bbox"][3]))
-        ax.add_patch(create_border(ann["segmentation"], fill=True, alpha=0.3))
+        if ann["bbox"]:
+            ax.add_patch(create_box(ann["bbox"][0], ann["bbox"][1], ann["bbox"][2], ann["bbox"][3]))
+        if ann["segmentation"]:
+            ax.add_patch(create_border(ann["segmentation"], fill=True, alpha=0.3))
         ax.annotate(json_dict["categories"][ann["category_id"]]["name"],
                     (ann["bbox"][0] - 50, ann["bbox"][1]+ann["bbox"][3]))
     plt.show()

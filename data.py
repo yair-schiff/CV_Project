@@ -15,8 +15,8 @@ import numpy as np
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('data-prep-logger')
 # logger.setLevel(level=logging.INFO)
-IMG_ID = 0
-ANN_ID = 0
+IMG_ID = -1
+ANN_ID = -1
 
 
 def img_id_increment():
@@ -227,8 +227,9 @@ def create_image_json(img_id, img, ddsm_file_name, ics_info, img_format=".jpg"):
     return image_json
 
 
-def create_annotation_json(img_id, img, ics_info, flip=False):
+def create_annotation_json(img, ics_info, flip=False):
     annotations = []
+    img_id = ics_info[img]["id"]
     if ics_info[img]["overlay"]:
         for overlay in ics_info[img]["overlays"]:
             category_id = get_cat(overlay["PATHOLOGY"])[0]
@@ -250,6 +251,17 @@ def create_annotation_json(img_id, img, ics_info, flip=False):
                     "iscrowd": 0
                 }
                 annotations.append(annotation)
+    else:
+        annotation = {
+            "id": ann_id_increment(),
+            "image_id": img_id,
+            "category_id": 0,
+            "segmentation": [],
+            "bbox": []
+            # "bbox": [0, 0, ics_info[img]["W"], ics_info[img]["H"]],
+            # "iscrowd": 1
+        }
+        annotations.append(annotation)
     return annotations
 
 
@@ -308,7 +320,8 @@ def read_case(case_folder, data_folder):
             img_id = ljpeg_emulator(os.path.join(case_folder, f), ics_dict, os.path.join(data_folder, "images"))
             f_split = f.split(".")
             ddsm_file_name = "{}.{}".format(f_split[0], f_split[1])
-            images.append(create_image_json(img_id, f_split[1 ], ddsm_file_name, ics_dict))
+            images.append(create_image_json(img_id, f_split[1], ddsm_file_name, ics_dict))
+            ics_dict[f_split[1]]["id"] = img_id
         elif "OVERLAY" in f and ics_dict[f.split(".")[1]]["overlay"]:
             ics_dict[f.split(".")[1]]["overlays"] = read_overlay(os.path.join(case_folder, f))
         else:
@@ -316,7 +329,7 @@ def read_case(case_folder, data_folder):
 
     for instance in ics_dict:
         if instance != "version" and instance != "patient_age" and instance != "date":
-            annotations += create_annotation_json(img_id, instance, ics_dict, "RIGHT" in instance)
+            annotations += create_annotation_json(instance, ics_dict, "RIGHT" in instance)
     return images, annotations
 
 

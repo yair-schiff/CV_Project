@@ -1,5 +1,6 @@
 .idea
 .DS_Store
 ljpeg/
-pytorch-mask-rcnn/
 data/train/_old
+DDSMUserManual.pdf
+INbreast/

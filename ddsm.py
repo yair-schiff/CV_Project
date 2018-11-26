@@ -61,7 +61,6 @@ COCO_MODEL_PATH = os.path.join(ROOT_DIR, "mask_rcnn_coco.pth")
 # Directory to save logs and model checkpoints, if not provided
 # through the command line argument --logs
 DEFAULT_LOGS_DIR = os.path.join(ROOT_DIR, "logs")
-DEFAULT_DATASET_YEAR = "2014"
 
 ############################################################
 #  Configurations
@@ -69,9 +68,9 @@ DEFAULT_DATASET_YEAR = "2014"
 
 
 class DDSMConfig(Config):
-    """Configuration for training on MS COCO.
+    """Configuration for training on DDSM.
     Derives from the base Config class and overrides values specific
-    to the COCO dataset.
+    to the DDSM dataset.
     """
     # Give the configuration a recognizable name
     NAME = "ddsm"
@@ -93,20 +92,16 @@ class DDSMConfig(Config):
 
 class DDSMDataset(utils.Dataset):
     def load_ddsm(self, dataset_dir, subset, return_ddsm=False):
-        """Load a subset of the COCO dataset.
-        dataset_dir: The root directory of the COCO dataset.
+        """Load a subset of the DDSM dataset.
+        dataset_dir: The root directory of the DDSM dataset.
         subset: What to load (train, val, minival, valminusminival)
-        year: What dataset year to load (2014, 2017) as a string, not an integer
-        class_ids: If provided, only loads images that have the given classes.
-        class_map: TODO: Not implemented yet. Supports maping classes from
-            different datasets to the same class ID.
-        return_coco: If True, returns the COCO object.
-        auto_download: Automatically download and unzip MS-COCO images and annotations
+        return_ddsm: If True, returns the DDSM object.
         """
         ddsm = COCO("{}/annotations/instances_{}.json".format(dataset_dir, subset))
         image_dir = "{}/{}/images".format(dataset_dir, subset)
-
-        image_ids = list(ddsm.imgs.keys())
+        
+        image_ids = list(ddsm.getImgIds(catIds=[]))
+        # image_ids = [3, 7, 15]
 
         # Add classes
         class_ids = ['normal', 'benign', 'malignant']
@@ -115,13 +110,17 @@ class DDSMDataset(utils.Dataset):
 
         # Add images
         for i in image_ids:
+            print(i)
             self.add_image(
                 "ddsm", image_id=i,
                 path=os.path.join(image_dir, ddsm.imgs[i]['file_name']),
                 width=ddsm.imgs[i]["width"],
                 height=ddsm.imgs[i]["height"],
                 annotations=ddsm.loadAnns(ddsm.getAnnIds(
-                    imgIds=[i], catIds=class_ids, iscrowd=None)))
+                    imgIds=[i], catIds=[], iscrowd=None)))
+
+        print(ddsm)
+        print(ddsm.getImgIds())
         if return_ddsm:
             return ddsm
 
@@ -143,8 +142,9 @@ class DDSMDataset(utils.Dataset):
         class_ids = []
         for ann in image_info['annotations']:
             mask = np.zeros((image_info['height'], image_info['width']))
-            np_verts = np.array([ann['border']], dtype=np.int32)
-            cv2.fillPoly(mask, np_verts, 1)
+            if ann['segmentation']:  # check if segmentation exists, otherwise return mask as np.zeros from line above
+                np_verts = np.array([ann['segmentation']], dtype=np.int32)
+                cv2.fillPoly(mask, np_verts, 1)
             instance_masks.append(mask)
             class_ids.append(ann['category_id'])
 
@@ -159,7 +159,7 @@ class DDSMDataset(utils.Dataset):
 
 
 ############################################################
-#  COCO Evaluation
+#  DDSM Evaluation
 ############################################################
 
 def build_ddsm_results(dataset, image_ids, rois, class_ids, scores, masks):
@@ -189,7 +189,7 @@ def build_ddsm_results(dataset, image_ids, rois, class_ids, scores, masks):
     return results
 
 
-def evaluate_coco(model, dataset, ddsm, eval_type="bbox", limit=0, image_ids=None):
+def evaluate_ddsm(model, dataset, ddsm, eval_type="bbox", limit=0, image_ids=None):
     """Runs official COCO evaluation.
     dataset: A Dataset object with validation data
     eval_type: "bbox" or "segm" for bounding box or segmentation evaluation
@@ -228,7 +228,7 @@ def evaluate_coco(model, dataset, ddsm, eval_type="bbox", limit=0, image_ids=Non
     ddsm_results = ddsm.loadRes(results)
 
     # Evaluate
-    ddsm_eval = COCOeval(coco, ddsm_results, eval_type)
+    ddsm_eval = COCOeval(ddsm, ddsm_results, eval_type)
     ddsm_eval.params.imgIds = ddsm_image_ids
     ddsm_eval.evaluate()
     ddsm_eval.accumulate()
@@ -249,13 +249,13 @@ if __name__ == '__main__':
 
     # Parse command line arguments
     parser = argparse.ArgumentParser(
-        description='Train Mask R-CNN on MS COCO.')
+        description='Train Mask R-CNN on DDSM.')
     parser.add_argument("command",
                         metavar="<command>",
-                        help="'train' or 'evaluate' on MS COCO")
+                        help="'train' or 'evaluate' on DDSM")
     parser.add_argument('--dataset', required=True,
-                        metavar="/path/to/coco/",
-                        help='Directory of the MS-COCO dataset')
+                        metavar="/path/to/ddsm/",
+                        help='Directory of the DDSM dataset')
     parser.add_argument('--model', required=False,
                         metavar="/path/to/weights.pth",
                         help="Path to weights .pth file or 'coco'")
@@ -284,7 +284,7 @@ if __name__ == '__main__':
             IMAGES_PER_GPU = 1
             DETECTION_MIN_CONFIDENCE = 0
         config = InferenceConfig()
-    config.display()
+    # config.display()
 
     # Create model
     if args.command == "train":
@@ -320,12 +320,12 @@ if __name__ == '__main__':
         # Training dataset. Use the training set and 35K from the
         # validation set, as as in the Mask RCNN paper.
         dataset_train = DDSMDataset()
-        dataset_train.load_coco(args.dataset, "train")
+        dataset_train.load_ddsm(args.dataset, "train")
         dataset_train.prepare()
 
         # Validation dataset
         dataset_val = DDSMDataset()
-        dataset_val.load_coco(args.dataset, "train")
+        dataset_val.load_ddsm(args.dataset, "train")
         dataset_val.prepare()
 
         # *** This training schedule is an example. Update to your needs ***
@@ -356,11 +356,11 @@ if __name__ == '__main__':
     elif args.command == "evaluate":
         # Validation dataset
         dataset_val = DDSMDataset()
-        coco = dataset_val.load_ddsm(args.dataset, "train", return_ddsm=True)
+        ddsm = dataset_val.load_ddsm(args.dataset, "train", return_ddsm=True)
         dataset_val.prepare()
         print("Running COCO evaluation on {} images.".format(args.limit))
-        evaluate_coco(model, dataset_val, coco, "bbox", limit=int(args.limit))
-        evaluate_coco(model, dataset_val, coco, "segm", limit=int(args.limit))
+        evaluate_ddsm(model, dataset_val, ddsm, "bbox", limit=int(args.limit))
+        evaluate_ddsm(model, dataset_val, ddsm, "segm", limit=int(args.limit))
     else:
         print("'{}' is not recognized. "
               "Use 'train' or 'evaluate'".format(args.command))
