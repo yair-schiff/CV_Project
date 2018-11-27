@@ -141,7 +141,7 @@ def read_overlay(overlay_path):
         abnormality_dict["outlines"] = {}
         outlines = []
         for outline in range(1, total_outlines + 1):
-            out = list(map(int, lines[line_offset + 6 + outline*2].split(" ")[:-1]))
+            out = list(map(int, list(filter((lambda x: x != ""), lines[line_offset + 6 + outline*2].strip().split(" ")[:-1]))))
             outlines.append(out)
         abnormality_dict["outlines"] = outlines
         overlays.append(abnormality_dict)
