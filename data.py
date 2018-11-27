@@ -265,7 +265,7 @@ def create_annotation_json(img, ics_info, flip=False):
     return annotations
 
 
-def create_instances_json(images, annotations, data_folder):
+def create_instances_json(images, annotations, data_folder, dataset):
     info = {
         "description": "Digital Database for Screening Mammography (DDSM)",
         "url": "http://marathon.csee.usf.edu/Mammography/Database.html",
@@ -306,7 +306,7 @@ def create_instances_json(images, annotations, data_folder):
         "categories": categories
     }
 
-    json_file = os.path.join(data_folder, "instances_train.json")
+    json_file = os.path.join(data_folder, "instances_{}.json".format(dataset))
     with open(json_file, 'w') as fp:
         json.dump(instances_json, fp)
 
@@ -339,6 +339,9 @@ def main():
                         help="Directory where cases reside.")
     parser.add_argument('--data', type=str, default='data', metavar='D',
                         help="Directory where data are to be saved.")
+    parser.add_argument('--split', type=int, default=10, metavar='S',
+                        help="Number on which to split training/validation sets, i.e. every nth case will be moved to"
+                             "validation set. (Default: 10 to create 90/10 split between training and validation sets)")
     parser.add_argument('--enable-log', type=str, default='y', metavar='L',
                         help="Set flag to \'y\' to enable logger (default) and \'n\' to disable logger.")
     args = parser.parse_args()
@@ -346,13 +349,16 @@ def main():
     ROOT_DIR = os.getcwd()
     cases_folder = os.path.join(ROOT_DIR, args.cases)
     data_folder = os.path.join(ROOT_DIR, args.data)
+    data_split = args.split
 
     logger.propagate = args.enable_log == "n"
     logger.disabled = args.enable_log == "n"
 
-    images = []
-    annotations = []
-
+    images_train = []
+    annotations_train = []
+    images_val = []
+    annotations_val = []
+    train_counter = 0  # keeps track of number of cases processed; every 10th case will be moved to validation set
     if not os.path.exists(cases_folder):
         raise (RuntimeError("Could not find " + cases_folder +
                             ', please download data from ftp://figment.csee.usf.edu/pub/DDSM/'))
@@ -376,11 +382,20 @@ def main():
                 if os.path.isdir(os.path.join(cases_folder, category, case)):
                     for case_folder in os.listdir(os.path.join(cases_folder, category, case)):
                         if os.path.isdir(os.path.join(cases_folder, category, case, case_folder)):
-                            ims, anns = read_case(os.path.join(cases_folder, category, case, case_folder),
-                                                  os.path.join(data_folder, "train"))
-                            images += ims
-                            annotations += anns
-    create_instances_json(images, annotations, os.path.join(data_folder, "annotations"))
+                            train_counter += 1
+                            if train_counter % data_split == 0:  # make this a validation case
+                                ims, anns = read_case(os.path.join(cases_folder, category, case, case_folder),
+                                                      os.path.join(data_folder, "val"))
+                                images_val += ims
+                                annotations_val += anns
+                            else:
+                                ims, anns = read_case(os.path.join(cases_folder, category, case, case_folder),
+                                                      os.path.join(data_folder, "train"))
+                                images_train += ims
+                                annotations_train += anns
+    # Create .json for val and training sets
+    create_instances_json(images_train, annotations_train, os.path.join(data_folder, "annotations"), "train")
+    create_instances_json(images_val, annotations_val, os.path.join(data_folder, "annotations"), "val")
 
 
 if __name__ == "__main__":
