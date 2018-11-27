@@ -127,28 +127,49 @@ def read_overlay(overlay_path):
     total_abnormalities = int(lines[0][len("TOTAL_ABNORMALITIES"):])
     overlays = []
     line_offset = 0
+    offsets = {
+        "LESION": 2,
+        "ASSESSMENT": 3,
+        "SUBTLETY": 4,
+        "PATHOLOGY": 5,
+        "OUTLINES": 6,
+        "TOTAL": 6
+    }
+    reset_offsets = False
     for abnormality in range(total_abnormalities):
         abnormality_dict = {}
-        lesion_info = lines[line_offset + 2].split(" ")
+        lesion_info = lines[line_offset + offsets["LESION"]].split(" ")
         info = 0
         while info < len(lesion_info):
             abnormality_dict[lesion_info[info].strip()] = lesion_info[info + 1].strip()
             info += 2
-        abnormality_dict["ASSESSMENT"] = int(lines[line_offset + 3][len("ASSESSMENT"):].strip())
-        abnormality_dict["SUBTLETY"] = int(lines[line_offset + 4][len("SUBTLETY"):].strip())
-        abnormality_dict["PATHOLOGY"] = lines[line_offset + 5][len("PATHOLOGY"):].strip()
-        total_outlines = int(lines[line_offset + 6][len("TOTAL_OUTLINES"):].strip())
+        try:
+            abnormality_dict["ASSESSMENT"] = int(lines[line_offset + offsets["ASSESSMENT"]][len("ASSESSMENT"):].strip())
+        except ValueError:
+            # offsets are off by one, need to increment
+            reset_offsets = True
+            for key in offsets:
+                offsets[key] += 1
+            abnormality_dict["ASSESSMENT"] = int(lines[line_offset + offsets["ASSESSMENT"]][len("ASSESSMENT"):].strip())
+        abnormality_dict["SUBTLETY"] = int(lines[line_offset + offsets["SUBTLETY"]][len("SUBTLETY"):].strip())
+        abnormality_dict["PATHOLOGY"] = lines[line_offset + offsets["PATHOLOGY"]][len("PATHOLOGY"):].strip()
+        total_outlines = int(lines[line_offset + offsets["OUTLINES"]][len("TOTAL_OUTLINES"):].strip())
         abnormality_dict["outlines"] = {}
         outlines = []
         for outline in range(1, total_outlines + 1):
             try:
-                out = list(map(int, list(filter((lambda x: x != ""), lines[line_offset + 6 + outline*2].strip().split(" ")[:-1]))))
+                out = list(map(int, list(filter((lambda x: x != ""), lines[line_offset + offsets["OUTLINES"]
+                                                                           + outline*2].strip().split(" ")[:-1]))))
                 outlines.append(out)
             except IndexError:
                 continue
         abnormality_dict["outlines"] = outlines
         overlays.append(abnormality_dict)
-        line_offset += 6 + total_outlines * 2
+        line_offset += offsets["TOTAL"] + total_outlines * 2
+        if reset_offsets:
+            reset_offsets = False
+            for key in offsets:
+                offsets[key] -= 1
     return overlays
 
 
