@@ -145,7 +145,7 @@ def read_overlay(overlay_path):
             outlines.append(out)
         abnormality_dict["outlines"] = outlines
         overlays.append(abnormality_dict)
-        line_offset += 6 + 1 + total_outlines * 2
+        line_offset += 6 + total_outlines * 2
     return overlays
 
 
