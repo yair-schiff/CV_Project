@@ -13,7 +13,7 @@ import numpy as np
 
 # Global variables
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('data-prep-logger')
+# logger = logging.getLogger('data-prep-logger')
 # logger.setLevel(level=logging.INFO)
 IMG_ID = -1
 ANN_ID = -1
@@ -56,7 +56,7 @@ def read_ics(case_folder):
             dims_dict["bps"] = int(line[6])
             dims_dict["overlay"] = True if line[-1] == "OVERLAY" else False
             if dims_dict["bps"] != 12:
-                logger.warning('Bits per pixel != 12: %s' % line[0])
+                logging.warning('Bits per pixel != 12: %s' % line[0])
             data_dict[line[0]] = dims_dict
         for k, v in data_dict.items():
             if k != "version" and k != "patient_age" and k != "date":
@@ -92,21 +92,21 @@ def ljpeg_emulator(ljpeg_path, ics_dict, data_folder, img_format='.jpg', normali
     image = read_compressed_image(ljpeg_path)
     reshape = False
     if ics_dict[name]["W"] != image.shape[1]:
-        logger.warning('reshape: %s' % ljpeg_path)
+        logging.warning('\treshape: %s' % ljpeg_path)
         image = image.reshape((ics_dict[name]["H"], ics_dict[name]["W"]))
         reshape = True
     raw = image
     if normalize:
-        logger.warning("normalizing color, will lose information")
+        logging.warning("\tnormalizing color, will lose information")
         if verify:
-            logger.error("verification is going to fail")
+            logging.error("\tverification is going to fail")
         if scale:
             rows, cols = image.shape
             image = cv2.resize(image, (int(cols * scale), int(rows * scale)))
         image = cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX)
         image = np.uint8(image)
     elif scale:
-        logger.error("--scale must be used with --visual")
+        logging.error("\t--scale must be used with --visual")
         sys.exit(1)
         # image = cv2.equalizeHist(image)
     if "RIGHT" in ljpeg_path:
@@ -115,9 +115,9 @@ def ljpeg_emulator(ljpeg_path, ics_dict, data_folder, img_format='.jpg', normali
     if verify:
         verify = cv2.imread(output_file, -1)
         if np.all((raw.reshape if reshape else raw) == verify):
-            logger.info('Verification successful, conversion is lossless')
+            logging.info('\tVerification successful, conversion is lossless')
         else:
-            logger.error('Verification failed: %s' % ljpeg_path)
+            logging.error('\tVerification failed: %s' % ljpeg_path)
     return img_id
 
 
@@ -141,8 +141,11 @@ def read_overlay(overlay_path):
         abnormality_dict["outlines"] = {}
         outlines = []
         for outline in range(1, total_outlines + 1):
-            out = list(map(int, list(filter((lambda x: x != ""), lines[line_offset + 6 + outline*2].strip().split(" ")[:-1]))))
-            outlines.append(out)
+            try:
+                out = list(map(int, list(filter((lambda x: x != ""), lines[line_offset + 6 + outline*2].strip().split(" ")[:-1]))))
+                outlines.append(out)
+            except IndexError:
+                continue
         abnormality_dict["outlines"] = outlines
         overlays.append(abnormality_dict)
         line_offset += 6 + total_outlines * 2
@@ -312,6 +315,7 @@ def create_instances_json(images, annotations, data_folder, dataset):
 
 
 def read_case(case_folder, data_folder):
+    logging.info("Working on case: {} ({})".format("/".join(case_folder.split("/")[-3:]), data_folder.split("/")[-1]))
     ics_dict = read_ics(case_folder)
     images = []
     annotations = []
@@ -324,8 +328,8 @@ def read_case(case_folder, data_folder):
             ics_dict[f_split[1]]["id"] = img_id
         elif "OVERLAY" in f and ics_dict[f.split(".")[1]]["overlay"]:
             ics_dict[f.split(".")[1]]["overlays"] = read_overlay(os.path.join(case_folder, f))
-        else:
-            logger.info("Skipping %s" % f)
+        # else:
+        #     logging.info("\tSkipping %s" % f)
 
     for instance in ics_dict:
         if instance != "version" and instance != "patient_age" and instance != "date":
@@ -342,8 +346,8 @@ def main():
     parser.add_argument('--split', type=int, default=10, metavar='S',
                         help="Number on which to split training/validation sets, i.e. every nth case will be moved to"
                              "validation set. (Default: 10 to create 90/10 split between training and validation sets)")
-    parser.add_argument('--enable-log', type=str, default='y', metavar='L',
-                        help="Set flag to \'y\' to enable logger (default) and \'n\' to disable logger.")
+    # parser.add_argument('--enable-log', type=str, default='y', metavar='L',
+    #                     help="Set flag to \'y\' to enable logger (default) and \'n\' to disable logger.")
     args = parser.parse_args()
 
     ROOT_DIR = os.getcwd()
@@ -351,8 +355,8 @@ def main():
     data_folder = os.path.join(ROOT_DIR, args.data)
     data_split = args.split
 
-    logger.propagate = args.enable_log == "n"
-    logger.disabled = args.enable_log == "n"
+    # logger.propagate = args.enable_log == "n"
+    # logger.disabled = args.enable_log == "n"
 
     images_train = []
     annotations_train = []
@@ -364,7 +368,7 @@ def main():
                             ', please download data from ftp://figment.csee.usf.edu/pub/DDSM/'))
 
     if not os.path.exists(data_folder):
-        logger.warning("Could not find " + data_folder + ". Creating new folder and processing data")
+        logging.warning("Could not find " + data_folder + ". Creating new folder and processing data")
         os.mkdir(data_folder)
     if not os.path.exists(os.path.join(data_folder, "annotations")):
         os.mkdir(os.path.join(data_folder, "annotations"))
