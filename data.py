@@ -167,7 +167,8 @@ def read_overlay(overlay_path):
                 out = list(map(int, list(filter((lambda x: x != ""), lines[line_offset + offsets["OUTLINES"]
                                                                            + outline*2].strip().split(" ")[:-1]))))
                 outlines.append(out)
-            except IndexError:
+            except (IndexError, ValueError):
+                total_outlines -= 1
                 continue
         abnormality_dict["outlines"] = outlines
         overlays.append(abnormality_dict)
@@ -350,13 +351,17 @@ def read_case(case_folder, data_folder):
     images = []
     annotations = []
     for f in os.listdir(case_folder):
+        if f.split(".")[-1] == "1":  # skip images that end in .1
+            continue
         if "LJPEG" in f:
+            logging.info("File: {}".format(f))
             img_id = ljpeg_emulator(os.path.join(case_folder, f), ics_dict, os.path.join(data_folder, "images"))
             f_split = f.split(".")
             ddsm_file_name = "{}.{}".format(f_split[0], f_split[1])
             images.append(create_image_json(img_id, f_split[1], ddsm_file_name, ics_dict))
             ics_dict[f_split[1]]["id"] = img_id
         elif "OVERLAY" in f and ics_dict[f.split(".")[1]]["overlay"]:
+            logging.info("File: {}".format(f))
             ics_dict[f.split(".")[1]]["overlays"] = read_overlay(os.path.join(case_folder, f))
         # else:
         #     logging.info("\tSkipping %s" % f)
