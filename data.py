@@ -384,7 +384,7 @@ def read_case(case_folder, data_folder):
     images = []
     annotations = []
     for f in os.listdir(case_folder):
-        if f.split(".")[-1] == "1":  # skip images that end in .1
+        if f.split(".")[-1] == "1" or f.split(".")[-1] == "2":  # skip images that end in .1 or .2
             continue
         if "LJPEG" in f:
             logging.info("File: {}".format(f))
