@@ -141,8 +141,12 @@ def read_overlay(overlay_path):
         lesion_info = lines[line_offset + offsets["LESION"]].split(" ")
         info = 0
         while info < len(lesion_info):
-            abnormality_dict[lesion_info[info].strip()] = lesion_info[info + 1].strip()
-            info += 2
+            try:
+                abnormality_dict[lesion_info[info].strip()] = lesion_info[info + 1].strip()
+                info += 2
+            except IndexError:
+                info += 2
+                continue
         try:
             abnormality_dict["ASSESSMENT"] = int(lines[line_offset + offsets["ASSESSMENT"]][len("ASSESSMENT"):].strip())
         except ValueError:
