@@ -3,10 +3,12 @@ from __future__ import print_function
 import argparse
 import cv2
 import glob
+import gzip
 import json
 import logging
 import os
 import re
+import shutil
 import subprocess
 import sys
 import numpy as np
@@ -76,13 +78,19 @@ def read_ics(case_folder):
 
 
 def read_compressed_image(path):
+    if ".gz" in path:
+        with gzip.open(path, "rb") as f_in:
+            with open(path[:-3], "wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
+        path = path[:-3]
     BIN = os.path.join(os.path.dirname(__file__), "ljpeg", "jpegdir", "jpeg")
     PATTERN = re.compile('\sC:(\d+)\s+N:(\S+)\s+W:(\d+)\s+H:(\d+)\s')
     cmd = '%s -d -s %s' % (BIN, path)
     # try:
     output = subprocess.check_output(cmd, shell=True)
     # except subprocess.CalledProcessError:
-    #     logging.warning("Reading of compressed image returned error. Will need to delete this image from corpus!")
+    #     logging.warning("Reading of compressed image returned error. "
+    #                     "Will need to delete this image from corpus:{}".format(path))
     #     return None
     m = re.search(PATTERN, output.decode('utf-8'))
     C = int(m.group(1))  # Assumes this is number of channels
@@ -100,7 +108,7 @@ def read_compressed_image(path):
 
 def ljpeg_emulator(ljpeg_path, ics_dict, data_folder, img_format='.jpg', normalize=True, verify=False, scale=None):
     assert "LJPEG" in ljpeg_path
-    name = ljpeg_path.split(".")[-2]
+    name = ljpeg_path.split(".")[-3] if ".gz" in ljpeg_path else ljpeg_path.split(".")[-2]
     img_id = img_id_increment()
     output_file = "{:08d}{}".format(img_id, img_format)
     image = read_compressed_image(ljpeg_path)
@@ -140,8 +148,12 @@ def ljpeg_emulator(ljpeg_path, ics_dict, data_folder, img_format='.jpg', normali
 
 
 def read_overlay(overlay_path):
-    with open(overlay_path, "r") as overlay_file:
-        lines = overlay_file.readlines()
+    if ".gz" in overlay_path:
+        with gzip.open(overlay_path, "rt") as content:
+            lines = content.readlines()
+    else:
+        with open(overlay_path, "r") as overlay_file:
+            lines = overlay_file.readlines()
     total_abnormalities = int(lines[0][len("TOTAL_ABNORMALITIES"):])
     overlays = []
     line_offset = 0
