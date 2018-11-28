@@ -43,37 +43,42 @@ def ann_id_increment():
 
 
 def read_ics(case_folder):
-    ics_path = glob.glob(case_folder + '/*.ics')[0]
+    ics_path = (glob.glob(case_folder + '/*.ics.gz') or glob.glob(case_folder + '/*.ics'))[0]
     data_dict = {}
-    with open(ics_path, "r") as ics_file:
-        for line in ics_file.readlines():
-            dims_dict = {"H": None, "W": None}
-            line = line.strip().split(" ")
-            if len(line) < 7:
-                if "ics_version" in line:
-                    data_dict["version"] = line[0] + line[1]
-                elif "PATIENT_AGE" in line:
-                    try:
-                        data_dict["patient_age"] = line[1]
-                    except IndexError:
-                        data_dict["patient_age"] = -99
-                elif "DATE_DIGITIZED" in line:
-                    year = line[-1]
-                    month = ("0" + line[-3]) if len(line[-3]) == 1 else line[-3]
-                    day = ("0" + line[-2]) if len(line[-2]) == 1 else line[-2]
-                    data_dict["date"] = "{}-{}-{}".format(year, month, day)
-                continue
-            dims_dict["H"] = int(line[2])
-            dims_dict["W"] = int(line[4])
-            dims_dict["bps"] = int(line[6])
-            dims_dict["overlay"] = True if line[-1] == "OVERLAY" else False
-            if dims_dict["bps"] != 12:
-                logging.warning('Bits per pixel != 12: %s' % line[0])
-            data_dict[line[0]] = dims_dict
-        for k, v in data_dict.items():
-            if k != "version" and k != "patient_age" and k != "date":
-                assert v["H"] is not None
-                assert v["W"] is not None
+    if ".gz" in ics_path:
+        with gzip.open(ics_path, "rt") as content:
+            lines = content.readlines()
+    else:
+        with open(ics_path, "r") as ics_file:
+            lines = ics_file.readlines()
+    for line in lines:
+        dims_dict = {"H": None, "W": None}
+        line = line.strip().split(" ")
+        if len(line) < 7:
+            if "ics_version" in line:
+                data_dict["version"] = line[0] + line[1]
+            elif "PATIENT_AGE" in line:
+                try:
+                    data_dict["patient_age"] = line[1]
+                except IndexError:
+                    data_dict["patient_age"] = -99
+            elif "DATE_DIGITIZED" in line:
+                year = line[-1]
+                month = ("0" + line[-3]) if len(line[-3]) == 1 else line[-3]
+                day = ("0" + line[-2]) if len(line[-2]) == 1 else line[-2]
+                data_dict["date"] = "{}-{}-{}".format(year, month, day)
+            continue
+        dims_dict["H"] = int(line[2])
+        dims_dict["W"] = int(line[4])
+        dims_dict["bps"] = int(line[6])
+        dims_dict["overlay"] = True if line[-1] == "OVERLAY" else False
+        if dims_dict["bps"] != 12:
+            logging.warning('Bits per pixel != 12: %s' % line[0])
+        data_dict[line[0]] = dims_dict
+    for k, v in data_dict.items():
+        if k != "version" and k != "patient_age" and k != "date":
+            assert v["H"] is not None
+            assert v["W"] is not None
     return data_dict
 
 
@@ -422,8 +427,7 @@ def main():
     data_folder = os.path.join(ROOT_DIR, args.data)
     data_split = args.split
 
-    # logger.propagate = args.enable_log == "n"
-    # logger.disabled = args.enable_log == "n"
+    # logging.disabled = args.enable_log == "n"
 
     images_train = []
     annotations_train = []
