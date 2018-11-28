@@ -153,6 +153,8 @@ def read_overlay(overlay_path):
             abnormality_dict["ASSESSMENT"] = int(lines[line_offset + offsets["ASSESSMENT"]][len("ASSESSMENT"):].strip())
         abnormality_dict["SUBTLETY"] = int(lines[line_offset + offsets["SUBTLETY"]][len("SUBTLETY"):].strip())
         abnormality_dict["PATHOLOGY"] = lines[line_offset + offsets["PATHOLOGY"]][len("PATHOLOGY"):].strip()
+        if get_cat(abnormality_dict["PATHOLOGY"]) is None:
+            abnormality_dict["PATHOLOGY"] = overlay_path.split("/")[-4][:-1].upper()
         total_outlines = int(lines[line_offset + offsets["OUTLINES"]][len("TOTAL_OUTLINES"):].strip())
         abnormality_dict["outlines"] = {}
         outlines = []
@@ -256,7 +258,10 @@ def create_annotation_json(img, ics_info, flip=False):
     img_id = ics_info[img]["id"]
     if ics_info[img]["overlay"]:
         for overlay in ics_info[img]["overlays"]:
-            category_id = get_cat(overlay["PATHOLOGY"])[0]
+            try:
+                category_id = get_cat(overlay["PATHOLOGY"])[0]
+            except TypeError:
+                continue
             birads_id = overlay["ASSESSMENT"]
             subtlety_id = overlay["SUBTLETY"]
             for outline in overlay["outlines"]:
