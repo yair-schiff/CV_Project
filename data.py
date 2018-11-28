@@ -15,8 +15,6 @@ import numpy as np
 
 # Global variables
 logging.basicConfig(level=logging.INFO)
-# logger = logging.getLogger('data-prep-logger')
-# logger.setLevel(level=logging.INFO)
 IMG_ID = -1
 ANN_ID = -1
 
@@ -91,12 +89,12 @@ def read_compressed_image(path):
     BIN = os.path.join(os.path.dirname(__file__), "ljpeg", "jpegdir", "jpeg")
     PATTERN = re.compile('\sC:(\d+)\s+N:(\S+)\s+W:(\d+)\s+H:(\d+)\s')
     cmd = '%s -d -s %s' % (BIN, path)
-    # try:
-    output = subprocess.check_output(cmd, shell=True)
-    # except subprocess.CalledProcessError:
-    #     logging.warning("Reading of compressed image returned error. "
-    #                     "Will need to delete this image from corpus:{}".format(path))
-    #     return None
+    try:
+        output = subprocess.check_output(cmd, shell=True)
+    except subprocess.CalledProcessError:
+        logging.warning("Reading of compressed image returned error. "
+                        "Will need to delete this image from corpus:{}".format(path))
+        return None
     m = re.search(PATTERN, output.decode('utf-8'))
     C = int(m.group(1))  # Assumes this is number of channels
     file = m.group(2)
@@ -400,8 +398,8 @@ def read_case(case_folder, data_folder):
         elif "OVERLAY" in f and ics_dict[f.split(".")[1]]["overlay"]:
             logging.info("File: {}".format(f))
             ics_dict[f.split(".")[1]]["overlays"] = read_overlay(os.path.join(case_folder, f))
-        # else:
-        #     logging.info("\tSkipping %s" % f)
+        else:
+            logging.warning("Skipping %s" % f)
 
     for instance in ics_dict:
         if instance != "version" and instance != "patient_age" and instance != "date":
@@ -418,16 +416,16 @@ def main():
     parser.add_argument('--split', type=int, default=10, metavar='S',
                         help="Number on which to split training/validation sets, i.e. every nth case will be moved to"
                              "validation set. (Default: 10 to create 90/10 split between training and validation sets)")
-    # parser.add_argument('--enable-log', type=str, default='y', metavar='L',
-    #                     help="Set flag to \'y\' to enable logger (default) and \'n\' to disable logger.")
+    parser.add_argument('--enable-log', type=str, default='y', metavar='L',
+                        help="Set flag to \'y\' to enable logger (default) and \'n\' to disable logger.")
     args = parser.parse_args()
 
     ROOT_DIR = os.getcwd()
     cases_folder = os.path.join(ROOT_DIR, args.cases)
     data_folder = os.path.join(ROOT_DIR, args.data)
     data_split = args.split
-
-    # logging.disabled = args.enable_log == "n"
+    if args.enable_log == "n":
+        logging.disable()
 
     images_train = []
     annotations_train = []
