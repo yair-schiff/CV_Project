@@ -26,6 +26,13 @@ def img_id_increment():
     return temp
 
 
+def img_id_decrement():
+    global IMG_ID
+    IMG_ID -= 1
+    temp = IMG_ID
+    return temp
+
+
 def ann_id_increment():
     global ANN_ID
     ANN_ID += 1
@@ -44,7 +51,10 @@ def read_ics(case_folder):
                 if "ics_version" in line:
                     data_dict["version"] = line[0] + line[1]
                 elif "PATIENT_AGE" in line:
-                    data_dict["patient_age"] = line[1]
+                    try:
+                        data_dict["patient_age"] = line[1]
+                    except IndexError:
+                        data_dict["patient_age"] = -99
                 elif "DATE_DIGITIZED" in line:
                     year = line[-1]
                     month = ("0" + line[-3]) if len(line[-3]) == 1 else line[-3]
@@ -69,7 +79,11 @@ def read_compressed_image(path):
     BIN = os.path.join(os.path.dirname(__file__), "ljpeg", "jpegdir", "jpeg")
     PATTERN = re.compile('\sC:(\d+)\s+N:(\S+)\s+W:(\d+)\s+H:(\d+)\s')
     cmd = '%s -d -s %s' % (BIN, path)
-    output = subprocess.check_output(cmd, shell=True)
+    try:
+        output = subprocess.check_output(cmd, shell=True)
+    except subprocess.CalledProcessError:
+        logging.warning("Reading of compressed image returned error. Will need to delete this image from corpus!")
+        return None
     m = re.search(PATTERN, output.decode('utf-8'))
     C = int(m.group(1))  # Assumes this is number of channels
     file = m.group(2)
@@ -90,6 +104,10 @@ def ljpeg_emulator(ljpeg_path, ics_dict, data_folder, img_format='.jpg', normali
     img_id = img_id_increment()
     output_file = "{:08d}{}".format(img_id, img_format)
     image = read_compressed_image(ljpeg_path)
+    if image is None:
+        img_id_decrement()
+        del ics_dict[name]
+        return -1
     reshape = False
     if ics_dict[name]["W"] != image.shape[1]:
         logging.warning('\treshape: %s' % ljpeg_path)
@@ -356,6 +374,8 @@ def read_case(case_folder, data_folder):
         if "LJPEG" in f:
             logging.info("File: {}".format(f))
             img_id = ljpeg_emulator(os.path.join(case_folder, f), ics_dict, os.path.join(data_folder, "images"))
+            if img_id == -1:
+                continue
             f_split = f.split(".")
             ddsm_file_name = "{}.{}".format(f_split[0], f_split[1])
             images.append(create_image_json(img_id, f_split[1], ddsm_file_name, ics_dict))
