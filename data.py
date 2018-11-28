@@ -79,11 +79,11 @@ def read_compressed_image(path):
     BIN = os.path.join(os.path.dirname(__file__), "ljpeg", "jpegdir", "jpeg")
     PATTERN = re.compile('\sC:(\d+)\s+N:(\S+)\s+W:(\d+)\s+H:(\d+)\s')
     cmd = '%s -d -s %s' % (BIN, path)
-    try:
-        output = subprocess.check_output(cmd, shell=True)
-    except subprocess.CalledProcessError:
-        logging.warning("Reading of compressed image returned error. Will need to delete this image from corpus!")
-        return None
+    # try:
+    output = subprocess.check_output(cmd, shell=True)
+    # except subprocess.CalledProcessError:
+    #     logging.warning("Reading of compressed image returned error. Will need to delete this image from corpus!")
+    #     return None
     m = re.search(PATTERN, output.decode('utf-8'))
     C = int(m.group(1))  # Assumes this is number of channels
     file = m.group(2)
