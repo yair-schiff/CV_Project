@@ -252,6 +252,14 @@ def flip_polygon(tup_verts, width):
     return flipped
 
 
+def get_segmentation(tup_verts):
+    segmentation = []
+    for vert in tup_verts:
+        segmentation.append(vert[0])
+        segmentation.append(vert[1])
+    return segmentation
+
+
 def get_bbox(tup_verts):
     bottom_border = -1
     top_border = 1000000
@@ -307,13 +315,14 @@ def create_annotation_json(img, ics_info, flip=False):
                 if flip:
                     border = flip_polygon(border, ics_info[img]["W"])
                 bbox = get_bbox(border)
+                segmentation = [get_segmentation(border)]
                 annotation = {
                     "id": ann_id_increment(),
                     "image_id": img_id,
                     "category_id": category_id,
                     "birads_id": birads_id,
                     "subtlety_id": subtlety_id,
-                    "segmentation": border,
+                    "segmentation": segmentation,
                     "bbox": bbox,
                     "iscrowd": 0
                 }
@@ -325,8 +334,6 @@ def create_annotation_json(img, ics_info, flip=False):
             "category_id": 0,
             "segmentation": [],
             "bbox": []
-            # "bbox": [0, 0, ics_info[img]["W"], ics_info[img]["H"]],
-            # "iscrowd": 1
         }
         annotations.append(annotation)
     return annotations
@@ -349,11 +356,6 @@ def create_instances_json(images, annotations, data_folder, dataset):
         }
     ]
     categories = [
-        {
-            'id': 0,
-            'name': 'normal',
-            'supercategory': 'normal',
-        },
         {
             'id': 1,
             'name': 'benign',
@@ -388,7 +390,7 @@ def read_case(case_folder, data_folder):
             continue
         if "LJPEG" in f:
             logging.info("File: {}".format(f))
-            img_id = ljpeg_emulator(os.path.join(case_folder, f), ics_dict, os.path.join(data_folder, "images"))
+            img_id = ljpeg_emulator(os.path.join(case_folder, f), ics_dict, data_folder)
             if img_id == -1:
                 continue
             f_split = f.split(".")
@@ -443,12 +445,8 @@ def main():
         os.mkdir(os.path.join(data_folder, "annotations"))
     if not os.path.exists(os.path.join(data_folder, "train")):
         os.mkdir(os.path.join(data_folder, "train"))
-    if not os.path.exists(os.path.join(data_folder, "train/images")):
-        os.mkdir(os.path.join(data_folder, "train/images"))
     if not os.path.exists(os.path.join(data_folder, "val")):
         os.mkdir(os.path.join(data_folder, "val"))
-    if not os.path.exists(os.path.join(data_folder, "val/images")):
-        os.mkdir(os.path.join(data_folder, "val/images"))
     for category in os.listdir(cases_folder):  # walk down categories (benign, malignant, normal)
         if os.path.isdir(os.path.join(cases_folder, category)):  # skip .DS_Store and other non-directory files
             for case in os.listdir(os.path.join(cases_folder, category)):  # walk down cases
