@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import numpy as np
+import matplotlib.pyplot as plt
 
 # Global variables
 logging.basicConfig(level=logging.INFO)
@@ -60,6 +61,8 @@ def read_ics(case_folder):
                     data_dict["patient_age"] = line[1]
                 except IndexError:
                     data_dict["patient_age"] = -99
+            elif "DIGITIZER" in line:
+                data_dict["digitizer"] = line[1]
             elif "DATE_DIGITIZED" in line:
                 year = line[-1]
                 month = ("0" + line[-3]) if len(line[-3]) == 1 else line[-3]
@@ -74,7 +77,7 @@ def read_ics(case_folder):
             logging.warning('Bits per pixel != 12: %s' % line[0])
         data_dict[line[0]] = dims_dict
     for k, v in data_dict.items():
-        if k != "version" and k != "patient_age" and k != "date":
+        if k != "version" and k != "patient_age" and k != "date" and k != "digitizer":
             assert v["H"] is not None
             assert v["W"] is not None
     return data_dict
@@ -113,41 +116,52 @@ def ljpeg_emulator(ljpeg_path, ics_dict, data_folder, img_format='.jpg', normali
     assert "LJPEG" in ljpeg_path
     name = ljpeg_path.split(".")[-3] if ".gz" in ljpeg_path else ljpeg_path.split(".")[-2]
     img_id = img_id_increment()
+    flipped = False  # flag to indicate whether image was flipped horizontally
     output_file = "{:08d}{}".format(img_id, img_format)
     image = read_compressed_image(ljpeg_path)
     if image is None:
         img_id_decrement()
         del ics_dict[name]
-        return -1
+        return -1, False
     reshape = False
     if ics_dict[name]["W"] != image.shape[1]:
-        logging.warning('\treshape: %s' % ljpeg_path)
+        logging.warning("reshape: {}".format(ljpeg_path))
         image = image.reshape((ics_dict[name]["H"], ics_dict[name]["W"]))
         reshape = True
     raw = image
     if normalize:
-        logging.warning("\tnormalizing color, will lose information")
+        logging.warning("normalizing color, will lose information")
         if verify:
-            logging.error("\tverification is going to fail")
+            logging.error("verification is going to fail")
         if scale:
             rows, cols = image.shape
             image = cv2.resize(image, (int(cols * scale), int(rows * scale)))
-        image = cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX)
+        image = cv2.normalize(image, None, 0, 255, norm_type=cv2.NORM_MINMAX)
         image = np.uint8(image)
+        # If average pixel value is less than 50, delete image since it is not bright enough
+        if np.mean(image) < 50:
+            logging.warning("Image pixel values are too dark (avg. {})."
+                            " Deleting image {}".format(np.mean(image), ljpeg_path))
+            img_id_decrement()
+            del ics_dict[name]
+            return -1, False
     elif scale:
         logging.error("\t--scale must be used with --visual")
         sys.exit(1)
         # image = cv2.equalizeHist(image)
-    if "RIGHT" in ljpeg_path:
+    # Check if there are bright pixels in the mid right edge of the image and flip horizontally if so
+    if image[ics_dict[name]["H"]//2, ics_dict[name]["W"]-1] > 50:
         image = cv2.flip(image, 1)
+        logging.warning("Flipping image as pixels on the right edge midway up the image are white")
+        flipped = True  # set flipped flag
     cv2.imwrite(os.path.join(data_folder, output_file), image)  # save image
     if verify:
         verify = cv2.imread(output_file, -1)
         if np.all((raw.reshape if reshape else raw) == verify):
-            logging.info('\tVerification successful, conversion is lossless')
+            logging.info('Verification successful, conversion is lossless')
         else:
-            logging.error('\tVerification failed: %s' % ljpeg_path)
-    return img_id
+            logging.error('Verification failed: %s' % ljpeg_path)
+    return img_id, flipped
 
 
 def read_overlay(overlay_path):
@@ -284,22 +298,25 @@ def get_cat(pathology):
         return 2, "malignant"
 
 
-def create_image_json(img_id, img, ddsm_file_name, ics_info, img_format=".jpg"):
+def create_image_json(img_id, img, ddsm_file_name, ics_info, case_name, img_format=".jpg"):
     file_name = "{:08d}{}".format(img_id, img_format)
     image_json = {
         "license": 1,
         "file_name": file_name,
+        "case_name": case_name,
         "ddsm_name": ddsm_file_name,
+        "digitizer": ics_info["digitizer"],
         "height": ics_info[img]["H"],
         "width": ics_info[img]["W"],
         "date_captured": ics_info["date"],
         "id": img_id,
+        "flipped": ics_info[img]["flipped"],
         "patient_age": ics_info["patient_age"]
     }
     return image_json
 
 
-def create_annotation_json(img, ics_info, flip=False):
+def create_annotation_json(img, ics_info):
     annotations = []
     img_id = ics_info[img]["id"]
     if ics_info[img]["overlay"]:
@@ -312,7 +329,7 @@ def create_annotation_json(img, ics_info, flip=False):
             subtlety_id = overlay["SUBTLETY"]
             for outline in overlay["outlines"]:
                 border = get_polygon(outline)
-                if flip:
+                if ics_info[img]["flipped"]:
                     border = flip_polygon(border, ics_info[img]["W"])
                 bbox = get_bbox(border)
                 segmentation = [get_segmentation(border)]
@@ -381,7 +398,8 @@ def create_instances_json(images, annotations, data_folder, dataset):
 
 
 def read_case(case_folder, data_folder):
-    logging.info("Working on case: {} ({})".format("/".join(case_folder.split("/")[-3:]), data_folder.split("/")[-1]))
+    case_name = "/".join(case_folder.split("/")[-3:])
+    logging.info("Working on case: {} ({})".format(case_name, data_folder.split("/")[-1]))
     ics_dict = read_ics(case_folder)
     images = []
     annotations = []
@@ -390,13 +408,14 @@ def read_case(case_folder, data_folder):
             continue
         if "LJPEG" in f:
             logging.info("File: {}".format(f))
-            img_id = ljpeg_emulator(os.path.join(case_folder, f), ics_dict, data_folder)
+            img_id, flipped = ljpeg_emulator(os.path.join(case_folder, f), ics_dict, data_folder)
             if img_id == -1:
                 continue
             f_split = f.split(".")
             ddsm_file_name = "{}.{}".format(f_split[0], f_split[1])
-            images.append(create_image_json(img_id, f_split[1], ddsm_file_name, ics_dict))
             ics_dict[f_split[1]]["id"] = img_id
+            ics_dict[f_split[1]]["flipped"] = flipped
+            images.append(create_image_json(img_id, f_split[1], ddsm_file_name, ics_dict, case_name))
         elif "OVERLAY" in f and ics_dict[f.split(".")[1]]["overlay"]:
             logging.info("File: {}".format(f))
             ics_dict[f.split(".")[1]]["overlays"] = read_overlay(os.path.join(case_folder, f))
@@ -404,8 +423,8 @@ def read_case(case_folder, data_folder):
             logging.warning("Skipping %s" % f)
 
     for instance in ics_dict:
-        if instance != "version" and instance != "patient_age" and instance != "date":
-            annotations += create_annotation_json(instance, ics_dict, "RIGHT" in instance)
+        if instance != "version" and instance != "patient_age" and instance != "date" and instance != "digitizer":
+            annotations += create_annotation_json(instance, ics_dict)
     return images, annotations
 
 
