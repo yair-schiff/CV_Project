@@ -139,12 +139,14 @@ def ljpeg_emulator(ljpeg_path, ics_dict, data_folder, img_format='.jpg', normali
         image = cv2.normalize(image, None, 0, 255, norm_type=cv2.NORM_MINMAX)
         image = np.uint8(image)
         # If average pixel value is less than 50, delete image since it is not bright enough
-        if np.mean(image) < 50:
-            logging.warning("Image pixel values are too dark (avg. {})."
-                            " Deleting image {}".format(np.mean(image), ljpeg_path))
-            img_id_decrement()
-            del ics_dict[name]
-            return -1, False
+        if np.mean(image) < 20:
+            mean_org = np.mean(image)
+            alpha = 15  # factor by which pixel values are multiplied
+            image = cv2.addWeighted(image, alpha, np.zeros(image.shape, image.dtype), 0, 0)
+            image = cv2.normalize(image, None, 0, 255, norm_type=cv2.NORM_MINMAX)  # re-normalize
+            image = np.uint8(image)
+            logging.warning("Image pixel values are too dark (avg. {}) Brightening image by factor of {} (new avg. {}. "
+                            "{}".format(mean_org, alpha, np.mean(image), ljpeg_path))
     elif scale:
         logging.error("\t--scale must be used with --visual")
         sys.exit(1)
@@ -416,7 +418,7 @@ def read_case(case_folder, data_folder):
             ics_dict[f_split[1]]["id"] = img_id
             ics_dict[f_split[1]]["flipped"] = flipped
             images.append(create_image_json(img_id, f_split[1], ddsm_file_name, ics_dict, case_name))
-        elif "OVERLAY" in f and ics_dict[f.split(".")[1]]["overlay"]:
+        elif "OVERLAY" in f and f.split(".")[1] in ics_dict and ics_dict[f.split(".")[1]]["overlay"]:
             logging.info("File: {}".format(f))
             ics_dict[f.split(".")[1]]["overlays"] = read_overlay(os.path.join(case_folder, f))
         else:
