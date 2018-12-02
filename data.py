@@ -154,7 +154,7 @@ def ljpeg_emulator(ljpeg_path, ics_dict, data_folder, img_format='.jpg', normali
         sys.exit(1)
         # image = cv2.equalizeHist(image)
     # Check if there are bright pixels in the mid right edge of the image and flip horizontally if so
-    if image[ics_dict[name]["H"]//2, ics_dict[name]["W"]-1] > 50:
+    if image[ics_dict[name]["H"]//2, ics_dict[name]["W"]-1] >= 200:
         image = cv2.flip(image, 1)
         logging.warning("Flipping image as pixels on the right edge midway up the image are white")
         flipped = True  # set flipped flag
