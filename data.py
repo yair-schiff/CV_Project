@@ -117,12 +117,13 @@ def ljpeg_emulator(ljpeg_path, ics_dict, data_folder, img_format='.jpg', normali
     name = ljpeg_path.split(".")[-3] if ".gz" in ljpeg_path else ljpeg_path.split(".")[-2]
     img_id = img_id_increment()
     flipped = False  # flag to indicate whether image was flipped horizontally
+    brightened = False  # flag to indicate whether image was brightened
     output_file = "{:08d}{}".format(img_id, img_format)
     image = read_compressed_image(ljpeg_path)
     if image is None:
         img_id_decrement()
         del ics_dict[name]
-        return -1, False
+        return -1, flipped, brightened
     reshape = False
     if ics_dict[name]["W"] != image.shape[1]:
         logging.warning("reshape: {}".format(ljpeg_path))
@@ -145,8 +146,9 @@ def ljpeg_emulator(ljpeg_path, ics_dict, data_folder, img_format='.jpg', normali
             image = cv2.addWeighted(image, alpha, np.zeros(image.shape, image.dtype), 0, 0)
             image = cv2.normalize(image, None, 0, 255, norm_type=cv2.NORM_MINMAX)  # re-normalize
             image = np.uint8(image)
-            logging.warning("Image pixel values are too dark (avg. {}) Brightening image by factor of {} (new avg. {}. "
-                            "{}".format(mean_org, alpha, np.mean(image), ljpeg_path))
+            logging.warning("Image pixel values are too dark (avg. {}) Brightening image by factor of {} (new avg. {})."
+                            " {}".format(mean_org, alpha, np.mean(image), ljpeg_path))
+            brightened = True  # set brightened flag
     elif scale:
         logging.error("\t--scale must be used with --visual")
         sys.exit(1)
@@ -163,7 +165,7 @@ def ljpeg_emulator(ljpeg_path, ics_dict, data_folder, img_format='.jpg', normali
             logging.info('Verification successful, conversion is lossless')
         else:
             logging.error('Verification failed: %s' % ljpeg_path)
-    return img_id, flipped
+    return img_id, flipped, brightened
 
 
 def read_overlay(overlay_path):
@@ -313,6 +315,7 @@ def create_image_json(img_id, img, ddsm_file_name, ics_info, case_name, img_form
         "date_captured": ics_info["date"],
         "id": img_id,
         "flipped": ics_info[img]["flipped"],
+        "brightened": ics_info[img]["brightened"],
         "patient_age": ics_info["patient_age"]
     }
     return image_json
@@ -410,13 +413,14 @@ def read_case(case_folder, data_folder):
             continue
         if "LJPEG" in f:
             logging.info("File: {}".format(f))
-            img_id, flipped = ljpeg_emulator(os.path.join(case_folder, f), ics_dict, data_folder)
+            img_id, flipped, brightened = ljpeg_emulator(os.path.join(case_folder, f), ics_dict, data_folder)
             if img_id == -1:
                 continue
             f_split = f.split(".")
             ddsm_file_name = "{}.{}".format(f_split[0], f_split[1])
             ics_dict[f_split[1]]["id"] = img_id
             ics_dict[f_split[1]]["flipped"] = flipped
+            ics_dict[f_split[1]]["brightened"] = brightened
             images.append(create_image_json(img_id, f_split[1], ddsm_file_name, ics_dict, case_name))
         elif "OVERLAY" in f and f.split(".")[1] in ics_dict and ics_dict[f.split(".")[1]]["overlay"]:
             logging.info("File: {}".format(f))
