@@ -1,6 +1,7 @@
 # External dependencies
 from __future__ import print_function
 import argparse
+import copy
 import cv2
 import glob
 import gzip
@@ -141,23 +142,26 @@ def ljpeg_emulator(ljpeg_path, ics_dict, data_folder, img_format='.jpg', normali
         image = np.uint8(image)
         # If average pixel value is less than 50, delete image since it is not bright enough
         if np.mean(image) < 20:
-            mean_org = np.mean(image)
-            alpha = 15  # factor by which pixel values are multiplied
-            image = cv2.addWeighted(image, alpha, np.zeros(image.shape, image.dtype), 0, 0)
+            mean_normalized = np.mean(image)
+            alpha = 30  # factor by which pixel values are multiplied
+            image = cv2.addWeighted(raw, alpha, np.zeros(raw.shape, raw.dtype), 0, 0)
             image = cv2.normalize(image, None, 0, 255, norm_type=cv2.NORM_MINMAX)  # re-normalize
             image = np.uint8(image)
             logging.warning("Image pixel values are too dark (avg. {}) Brightening image by factor of {} (new avg. {})."
-                            " {}".format(mean_org, alpha, np.mean(image), ljpeg_path))
+                            " {}".format(mean_normalized, alpha, np.mean(image), ljpeg_path))
             brightened = True  # set brightened flag
     elif scale:
         logging.error("\t--scale must be used with --visual")
         sys.exit(1)
         # image = cv2.equalizeHist(image)
-    # Check if there are bright pixels in the mid right edge of the image and flip horizontally if so
-    if image[ics_dict[name]["H"]//2, ics_dict[name]["W"]-1] >= 200:
+    # Flip horizontally if pixel midway on right is > pixel midway on left
+    if image[ics_dict[name]["H"]//2, ics_dict[name]["W"]-1] > image[ics_dict[name]["H"]//2, 0]:
         image = cv2.flip(image, 1)
-        logging.warning("Flipping image as pixels on the right edge midway up the image are white")
+        logging.warning("Flipping image as pixels on midway on right ({}) > pixel midway on left ({}).".
+                        format(image[ics_dict[name]["H"]//2, ics_dict[name]["W"]-1], image[ics_dict[name]["H"]//2, 0]))
         flipped = True  # set flipped flag
+    plt.imshow(image, cmap=plt.cm.gray)
+    plt.show()
     cv2.imwrite(os.path.join(data_folder, output_file), image)  # save image
     if verify:
         verify = cv2.imread(output_file, -1)
