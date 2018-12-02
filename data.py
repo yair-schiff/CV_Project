@@ -12,7 +12,7 @@ import shutil
 import subprocess
 import sys
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 # Global variables
 logging.basicConfig(level=logging.INFO)
@@ -159,8 +159,6 @@ def ljpeg_emulator(ljpeg_path, ics_dict, data_folder, img_format='.jpg', normali
         logging.warning("Flipping image as pixels on midway on right ({}) > pixel midway on left ({}).".
                         format(image[ics_dict[name]["H"]//2, ics_dict[name]["W"]-1], image[ics_dict[name]["H"]//2, 0]))
         flipped = True  # set flipped flag
-    plt.imshow(image, cmap=plt.cm.gray)
-    plt.show()
     cv2.imwrite(os.path.join(data_folder, output_file), image)  # save image
     if verify:
         verify = cv2.imread(output_file, -1)
