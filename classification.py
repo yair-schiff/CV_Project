@@ -17,6 +17,21 @@ from PIL import Image
 
 ########################################################################################################################
 # Dataset
+def pad_along_axis(array, target_length, axis=0):
+    """
+    code taken from:
+    https://stackoverflow.com/questions/19349410/how-to-pad-with-zeros-a-tensor-along-some-axis-python
+    """
+    pad_size = target_length - array.shape[axis]
+    axis_nb = len(array.shape)
+    if pad_size < 0:
+        return array
+    npad = [(0, 0) for x in range(axis_nb)]
+    pad[axis] = (0, pad_size)
+    b = np.pad(array, pad_width=npad, mode='constant', constant_values=0)
+    return b
+
+
 def ddsm_crop(image, target_dims):
     h, w = image.shape
     y = h // 2
@@ -186,8 +201,6 @@ def validation(model, val_loader, device):
 
 def main():
     parser = argparse.ArgumentParser(description='PyTorch DDSM Classification')
-    parser.add_argument('--desired-model', type=str, default='Net', metavar='DM',
-                        help="model to be used (default: Net - i.e. the Neural Net from cloned repo)")
     parser.add_argument('--data', type=str, default='data', metavar='D',
                         help="folder where data is located.")
     parser.add_argument('--model-results', type=str, default='model_results', metavar='M',
@@ -197,7 +210,7 @@ def main():
     parser.add_argument('--epochs', type=int, default=10, metavar='N',
                         help='number of epochs to train (default: 10)')
     parser.add_argument('--lr', type=float, default=0.001, metavar='LR',
-                        help='learning rate (default: 0.01)')
+                        help='learning rate (default: 0.001)')
     parser.add_argument('--seed', type=int, default=1, metavar='S',
                         help='random seed (default: 1)')
     parser.add_argument('--log-interval', type=int, default=10, metavar='N',
@@ -206,8 +219,7 @@ def main():
     # Parse arguments
     args = parser.parse_args()
     ROOT_DIR = os.getcwd()
-    model_name = args.desired_model
-    data_dir = os.path.join(ROOT_DIR, args.data)
+    data_dir = args.data
     model_res_dir = os.path.join(ROOT_DIR, args.model_results)
     batch_size = args.batch_size
     epochs = args.epochs
