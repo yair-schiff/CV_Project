@@ -12,13 +12,11 @@ import shutil
 import subprocess
 import sys
 import numpy as np
-from shapely.geometry import shape
 # import matplotlib.pyplot as plt
 
 # Global variables
 logging.basicConfig(level=logging.INFO)
 IMG_ID = -1
-ANN_ID = -1
 
 
 def img_id_increment():
@@ -32,13 +30,6 @@ def img_id_decrement():
     global IMG_ID
     IMG_ID -= 1
     temp = IMG_ID
-    return temp
-
-
-def ann_id_increment():
-    global ANN_ID
-    ANN_ID += 1
-    temp = ANN_ID
     return temp
 
 
@@ -275,24 +266,8 @@ def flip_polygon(tup_verts, width):
 def get_segmentation(tup_verts):
     segmentation = []
     for vert in tup_verts:
-        segmentation.append(vert[0])
-        segmentation.append(vert[1])
+        segmentation.append([vert[1], vert[0]])
     return segmentation
-
-
-def get_bbox(tup_verts):
-    bottom_border = -1
-    top_border = 1000000
-    right_border = -1
-    left_border = 1000000
-    for vertex in tup_verts:
-        bottom_border = max(bottom_border, vertex[1])
-        top_border = min(top_border, vertex[1])
-        right_border = max(right_border, vertex[0])
-        left_border = min(left_border, vertex[0])
-    height = bottom_border - top_border
-    width = right_border - left_border
-    return [left_border, top_border, width, height]
 
 
 def get_cat(pathology):
@@ -304,117 +279,27 @@ def get_cat(pathology):
         return 2, "malignant"
 
 
-def create_image_json(img_id, img, ddsm_file_name, ics_info, case_name, img_format=".jpg"):
-    file_name = "{:08d}{}".format(img_id, img_format)
-    image_json = {
-        "license": 1,
-        "file_name": file_name,
-        "case_name": case_name,
-        "ddsm_name": ddsm_file_name,
-        "digitizer": ics_info["digitizer"],
-        "height": ics_info[img]["H"],
-        "width": ics_info[img]["W"],
-        "date_captured": ics_info["date"],
-        "id": img_id,
-        "flipped": ics_info[img]["flipped"],
-        "brightened": ics_info[img]["brightened"],
-        "patient_age": ics_info["patient_age"]
-    }
-    return image_json
-
-
-def create_annotation_json(img, ics_info):
-    annotations = []
+def create_masks(img, ics_info, data_folder):
     img_id = ics_info[img]["id"]
+    mask = np.zeros((ics_info[img]["H"], ics_info[img]["W"]))
     if ics_info[img]["overlay"]:
         for overlay in ics_info[img]["overlays"]:
-            try:
-                category_id = get_cat(overlay["PATHOLOGY"])[0]
-            except TypeError:
-                continue
-            birads_id = overlay["ASSESSMENT"]
-            subtlety_id = overlay["SUBTLETY"]
             for outline in overlay["outlines"]:
                 border = get_polygon(outline)
                 if ics_info[img]["flipped"]:
                     border = flip_polygon(border, ics_info[img]["W"])
-                bbox = get_bbox(border)
-                x, y = zip(*border)
-                area = shape({'type': 'Polygon', 'coordinates': [zip(x, y)]}).area
-                segmentation = [get_segmentation(border)]
-                annotation = {
-                    "id": ann_id_increment(),
-                    "image_id": img_id,
-                    "category_id": category_id,
-                    "birads_id": birads_id,
-                    "subtlety_id": subtlety_id,
-                    "segmentation": segmentation,
-                    "area": area,
-                    "bbox": bbox,
-                    "iscrowd": 0
-                }
-                annotations.append(annotation)
-    else:
-        annotation = {
-            "id": ann_id_increment(),
-            "image_id": img_id,
-            "category_id": 0,
-            "segmentation": [],
-            "bbox": []
-        }
-        annotations.append(annotation)
-    return annotations
-
-
-def create_instances_json(images, annotations, data_folder, dataset):
-    info = {
-        "description": "Digital Database for Screening Mammography (DDSM)",
-        "url": "http://marathon.csee.usf.edu/Mammography/Database.html",
-        "version": "1.0",
-        "year": 2018,
-        "contributor": "yair-schiff",
-        "date_created": "2018/11/15"
-    }
-    licenses = [
-        {
-            "id": 1,
-            "name": "Dummy license",
-            "url": "dummy_license_url"
-        }
-    ]
-    categories = [
-        {
-            'id': 1,
-            'name': 'benign',
-            'supercategory': 'tumor',
-        },
-        {
-            'id': 2,
-            'name': 'malignant',
-            'supercategory': 'tumor',
-        },
-    ]
-    instances_json = {
-        "info": info,
-        "licenses": licenses,
-        "images": images,
-        "annotations": annotations,
-        "categories": categories
-    }
-
-    json_file = os.path.join(data_folder, "instances_{}.json".format(dataset))
-    with open(json_file, 'w') as fp:
-        json.dump(instances_json, fp)
-
+                np_verts = np.array([border], dtype=np.int32)
+                cv2.fillPoly(mask, np_verts, 255)
+    cv2.imwrite(os.path.join(data_folder, "{:08d}".format(img_id) + '_mask.jpg'), mask)
 
 def read_case(case_folder, data_folder):
     case_name = "/".join(case_folder.split("/")[-3:])
     logging.info("Working on case: {} ({})".format(case_name, data_folder.split("/")[-1]))
     ics_dict = read_ics(case_folder)
-    images = []
     annotations = []
     for f in os.listdir(case_folder):
-        if (".gz" in f and "ics" not in f and "OVERLAY" not in f) or f.split(".")[-1] == "1" or f.split(".")[-1] == "2":  # skip images that end in .1 or .2
+        #if ".gz" in f or f.split(".")[-1] == "1" or f.split(".")[-1] == "2":  # skip images that end in .1 or .2
+        if f.split(".")[-1] == "1" or f.split(".")[-1] == "2":  # skip images that end in .1 or .2
             continue
         if "LJPEG" in f:
             logging.info("File: {}".format(f))
@@ -426,7 +311,6 @@ def read_case(case_folder, data_folder):
             ics_dict[f_split[1]]["id"] = img_id
             ics_dict[f_split[1]]["flipped"] = flipped
             ics_dict[f_split[1]]["brightened"] = brightened
-            images.append(create_image_json(img_id, f_split[1], ddsm_file_name, ics_dict, case_name))
         elif "OVERLAY" in f and f.split(".")[1] in ics_dict and ics_dict[f.split(".")[1]]["overlay"]:
             logging.info("File: {}".format(f))
             ics_dict[f.split(".")[1]]["overlays"] = read_overlay(os.path.join(case_folder, f))
@@ -435,12 +319,11 @@ def read_case(case_folder, data_folder):
 
     for instance in ics_dict:
         if instance != "version" and instance != "patient_age" and instance != "date" and instance != "digitizer":
-            annotations += create_annotation_json(instance, ics_dict)
-    return images, annotations
+            create_masks(instance, ics_dict, data_folder)
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Processing DDSM data to COCO format')
+    parser = argparse.ArgumentParser(description='Processing DDSM data to UNET format')
     parser.add_argument('--cases', type=str, default='cases', metavar='C',
                         help="Directory where cases reside.")
     parser.add_argument('--data', type=str, default='data', metavar='D',
@@ -471,8 +354,6 @@ def main():
     if not os.path.exists(data_folder):
         logging.warning("Could not find " + data_folder + ". Creating new folder and processing data")
         os.mkdir(data_folder)
-    if not os.path.exists(os.path.join(data_folder, "annotations")):
-        os.mkdir(os.path.join(data_folder, "annotations"))
     if not os.path.exists(os.path.join(data_folder, "train")):
         os.mkdir(os.path.join(data_folder, "train"))
     if not os.path.exists(os.path.join(data_folder, "val")):
@@ -484,20 +365,13 @@ def main():
                     for case_folder in os.listdir(os.path.join(cases_folder, category, case)):
                         if os.path.isdir(os.path.join(cases_folder, category, case, case_folder)):
                             train_counter += 1
-                            if train_counter % data_split == 0:  # make this a validation case
-                                ims, anns = read_case(os.path.join(cases_folder, category, case, case_folder),
-                                                      os.path.join(data_folder, "val"))
-                                images_val += ims
-                                annotations_val += anns
-                            else:
-                                ims, anns = read_case(os.path.join(cases_folder, category, case, case_folder),
-                                                      os.path.join(data_folder, "train"))
-                                images_train += ims
-                                annotations_train += anns
-    # Create .json for val and training sets
-    create_instances_json(images_train, annotations_train, os.path.join(data_folder, "annotations"), "train")
-    create_instances_json(images_val, annotations_val, os.path.join(data_folder, "annotations"), "val")
+                            read_case(
+                                os.path.join(cases_folder, category, case, case_folder), 
+                                os.path.join(data_folder, "val" if train_counter % data_split == 0 else "train")
+                            )
+
 
 
 if __name__ == "__main__":
     main()
+
