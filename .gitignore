@@ -1,5 +1,7 @@
 .idea
 .DS_Store
+cases/
+data/
 ljpeg/
 data/train/_old
 DDSMUserManual.pdf
