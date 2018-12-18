@@ -41,8 +41,8 @@ def ddsm_crop(image, target_dims):
     return Image.fromarray(cropped_image)
 
 
-CROP_SIZE = (2600, 2000)
-default_transform = transforms.Compose([transforms.Resize((4096, 2048)),
+CROP_SIZE = (1500, 900)
+default_transform = transforms.Compose([transforms.Resize((2048, 1024)),
                                         transforms.Lambda(lambda img: ddsm_crop(img, CROP_SIZE)),
                                         transforms.ToTensor()])
 
@@ -158,7 +158,7 @@ class MyResNet(nn.Module):
             "resnet152": models.resnet152
         }
         self.model = resnet_dict[desired_resnet](pretrained=True)
-        num_ftrs = 2217984  # self.model.fc.in_features
+        num_ftrs = 461824  # self.model.fc.in_features
         if only_train_heads:
             for param in self.model.parameters():
                 param.requires_grad = False
