@@ -24,10 +24,8 @@ def pad_along_axis(array, target_length, axis=0):
     """
     pad_size = target_length - array.shape[axis]
     axis_nb = len(array.shape)
-    if pad_size < 0:
-        return array
-    npad = [(0, 0) for x in range(axis_nb)]
-    pad[axis] = (0, pad_size)
+    npad = [(0, 0) for _ in range(axis_nb)]
+    npad[axis] = (0, pad_size)
     b = np.pad(array, pad_width=npad, mode='constant', constant_values=0)
     return b
 
@@ -38,6 +36,7 @@ def ddsm_crop(image, target_dims):
     x = 0
     normalized_image = (image - image.mean(axis=(-2, -1), keepdims=1)) / image.std(axis=(-2, -1), keepdims=1)
     cropped_image = normalized_image[y - target_dims[0] // 2:y + target_dims[0] // 2, x:x + target_dims[1]]
+    cropped_image = pad_along_axis(cropped_image, target_length=target_dims[1], axis=1)
     return Image.fromarray(np.uint8(cropped_image))
 
 
@@ -81,6 +80,8 @@ def make_dataset(data_dir, dataset, class_to_idx, exclude_brightened=False):
     imgs_dir = os.path.join(data_dir, dataset)
     for root, _, fnames in sorted(os.walk(imgs_dir)):
         for fname in sorted(fnames):
+            if "jpg" not in fname:
+                continue
             path = os.path.join(root, fname)
             if exclude_brightened and get_brightened(fname, image_anns):
                 continue
@@ -155,7 +156,7 @@ class MyResNet(nn.Module):
             "resnet152": models.resnet152
         }
         self.model = resnet_dict[desired_resnet](pretrained=True)
-        num_ftrs = 3622912 # self.model.fc.in_features
+        num_ftrs = 3622912  # self.model.fc.in_features
         self.model.conv1 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), bias=False)
         self.model.fc = nn.Linear(num_ftrs, num_classes)
 
