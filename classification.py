@@ -225,9 +225,9 @@ def main():
 
     # Parse arguments
     args = parser.parse_args()
-    ROOT_DIR = os.getcwd()
+    # ROOT_DIR = os.getcwd()
     data_dir = args.data
-    model_res_dir = os.path.join(ROOT_DIR, args.model_results)
+    model_res_dir = args.model_results
     batch_size = args.batch_size
     epochs = args.epochs
     lr = args.lr
