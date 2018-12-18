@@ -31,17 +31,19 @@ def pad_along_axis(array, target_length, axis=0):
 
 
 def ddsm_crop(image, target_dims):
+    image = np.asarray(image)
     h, w = image.shape
     y = h // 2
     x = 0
     normalized_image = (image - image.mean(axis=(-2, -1), keepdims=1)) / image.std(axis=(-2, -1), keepdims=1)
     cropped_image = normalized_image[y - target_dims[0] // 2:y + target_dims[0] // 2, x:x + target_dims[1]]
-    cropped_image = pad_along_axis(cropped_image, target_length=target_dims[1], axis=1)
-    return Image.fromarray(np.uint8(cropped_image))
+    # cropped_image = pad_along_axis(cropped_image, target_length=target_dims[1], axis=1)
+    return Image.fromarray(cropped_image)
 
 
-CROP_SIZE = (4096, 2048)
-default_transform = transforms.Compose([transforms.Lambda(lambda img: ddsm_crop(img, CROP_SIZE)),
+CROP_SIZE = (2600, 2000)
+default_transform = transforms.Compose([transforms.Resize((4096, 2048)),
+                                        transforms.Lambda(lambda img: ddsm_crop(img, CROP_SIZE)),
                                         transforms.ToTensor()])
 
 
@@ -93,9 +95,9 @@ def make_dataset(data_dir, dataset, class_to_idx, exclude_brightened=False):
 
 def greyscale_loader(path):
     # open path as file to avoid ResourceWarning (https://github.com/python-pillow/Pillow/issues/835)
-    with open(path, 'rb') as f:
-        img = Image.open(f)
-        return np.asarray(img)
+    # with open(path, "rb") as f:
+    img = Image.open(open(path, "rb"))
+    return img
 
 
 class DDSMDataset(torch.utils.data.Dataset):
@@ -147,7 +149,7 @@ class DDSMDataset(torch.utils.data.Dataset):
 ########################################################################################################################
 # Models
 class MyResNet(nn.Module):
-    def __init__(self, desired_resnet, num_classes):
+    def __init__(self, desired_resnet, num_classes, only_train_heads=False):
         super(MyResNet, self).__init__()
         resnet_dict = {
             "resnet18": models.resnet18,
@@ -156,7 +158,10 @@ class MyResNet(nn.Module):
             "resnet152": models.resnet152
         }
         self.model = resnet_dict[desired_resnet](pretrained=True)
-        num_ftrs = 3622912  # self.model.fc.in_features
+        num_ftrs = 2217984  # self.model.fc.in_features
+        if only_train_heads:
+            for param in self.model.parameters():
+                param.requires_grad = False
         self.model.conv1 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), bias=False)
         self.model.fc = nn.Linear(num_ftrs, num_classes)
 
@@ -239,7 +244,7 @@ def main():
     val_loader = torch.utils.data.DataLoader(DDSMDataset(data_dir, dataset="val", exclude_brightened=True),
                                              batch_size=batch_size, shuffle=True, num_workers=1)
     # Load model
-    model = MyResNet("resnet18", 3)
+    model = MyResNet("resnet18", 3, only_train_heads=True)  # last argument True for stage 1 & False for fine-tuning
     model = model.to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
