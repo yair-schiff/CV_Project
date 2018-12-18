@@ -176,6 +176,7 @@ def train(model, train_loader, optimizer, device, epoch, log_interval):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = Variable(data).to(device), Variable(target).to(device)
+        print("Working on batch #{} with labels {}".format(batch_idx, target))
         optimizer.zero_grad()
         output = model(data)
         loss = F.cross_entropy(output, target)
@@ -237,6 +238,7 @@ def main():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     if device != torch.device("cpu"):
         torch.set_default_tensor_type('torch.cuda.FloatTensor')
+    print("Device: {}".format(device))
 
     # Load data
     train_loader = torch.utils.data.DataLoader(DDSMDataset(data_dir, dataset="train", exclude_brightened=True),
