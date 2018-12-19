@@ -10,3 +10,4 @@ data/train/_old
 DDSMUserManual.pdf
 INbreast/
 *.txt
+!requirements_classify.txt
