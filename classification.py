@@ -253,7 +253,8 @@ def main():
     for epoch in range(1, epochs + 1):
         train(model, train_loader, optimizer, device, epoch, log_interval)
         correct = validation(model, val_loader, device)
-        model_file = model_res_dir + str(epoch) + ".pth"
+        model_file = os.path.join(model_res_dir, "model_stage" +
+                                  str(1 if train_heads else 2) + "_" + str(epoch) + ".pth")
         torch.save(model.state_dict(), model_file)
         print("\nSaved model to " + model_file + ".")
 
