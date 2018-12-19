@@ -6,16 +6,16 @@ import os
 
 import numpy as np
 import torch
-from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torchvision.models as models
 import torchvision.transforms as transforms
 from PIL import Image
+from torch.autograd import Variable
 
-import pdb
 
+# import pdb
 
 ########################################################################################################################
 # Dataset
@@ -125,7 +125,7 @@ class DDSMDataset(torch.utils.data.Dataset):
 
     def __repr__(self):
         fmt_str = 'Dataset ' + self.__class__.__name__ + '\n'
-        fmt_str += '    Number of datapoints: {}\n'.format(self.__len__())
+        fmt_str += '    Number of data points: {}\n'.format(self.__len__())
         fmt_str += '    Root Location: {}\n'.format(self.root)
         tmp = '    Transforms (if any): '
         fmt_str += '{0}{1}\n'.format(tmp, self.transform.__repr__().replace('\n', '\n' + ' ' * len(tmp)))
@@ -252,7 +252,7 @@ def main():
         os.mkdir(model_res_dir)
     for epoch in range(1, epochs + 1):
         train(model, train_loader, optimizer, device, epoch, log_interval)
-        correct = validation(model, val_loader, device)
+        validation(model, val_loader, device)
         model_file = os.path.join(model_res_dir, "model_stage" +
                                   str(1 if train_heads else 2) + "_" + str(epoch) + ".pth")
         torch.save(model.state_dict(), model_file)
