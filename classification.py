@@ -24,8 +24,9 @@ def ddsm_crop(image, target_dims):
     h, w = image.shape
     y = h // 2
     x = 0
-    normalized_image = (image - image.mean(axis=(-2, -1), keepdims=1)) / image.std(axis=(-2, -1), keepdims=1)
-    cropped_image = normalized_image[y - target_dims[0] // 2:y + target_dims[0] // 2, x:x + target_dims[1]]
+    # normalized_image = (image - image.mean(axis=(-2, -1), keepdims=1)) / image.std(axis=(-2, -1), keepdims=1)
+    # cropped_image = normalized_image[y - target_dims[0] // 2:y + target_dims[0] // 2, x:x + target_dims[1]]
+    cropped_image = image[y - target_dims[0] // 2:y + target_dims[0] // 2, x:x + target_dims[1]]
     return Image.fromarray(cropped_image)
 
 
