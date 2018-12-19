@@ -1,5 +1,8 @@
+model_results*
 .idea
 .DS_Store
+.ipynb_checkpoints/
+__pycache__/
 cases/
 data/
 ljpeg/

@@ -14,6 +14,7 @@ import torchvision.models as models
 import torchvision.transforms as transforms
 from PIL import Image
 
+import pdb
 
 ########################################################################################################################
 # Dataset
@@ -174,9 +175,12 @@ class MyResNet(nn.Module):
 # Training & Validation
 def train(model, train_loader, optimizer, device, epoch, log_interval):
     model.train()
-    for batch_idx, (data, target) in enumerate(train_loader):
+    print("Training epoch {}...".format(epoch))
+    batch_idx = 0
+    for (data, target) in train_loader:
+        batch_idx += 1
         data, target = Variable(data).to(device), Variable(target).to(device)
-        print("Working on batch #{} with labels {}".format(batch_idx, target))
+        #print("Working on batch #{} with labels {}".format(batch_idx, target))
         optimizer.zero_grad()
         output = model(data)
         loss = F.cross_entropy(output, target)
