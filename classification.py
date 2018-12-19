@@ -16,21 +16,9 @@ from PIL import Image
 
 import pdb
 
+
 ########################################################################################################################
 # Dataset
-def pad_along_axis(array, target_length, axis=0):
-    """
-    code taken from:
-    https://stackoverflow.com/questions/19349410/how-to-pad-with-zeros-a-tensor-along-some-axis-python
-    """
-    pad_size = target_length - array.shape[axis]
-    axis_nb = len(array.shape)
-    npad = [(0, 0) for _ in range(axis_nb)]
-    npad[axis] = (0, pad_size)
-    b = np.pad(array, pad_width=npad, mode='constant', constant_values=0)
-    return b
-
-
 def ddsm_crop(image, target_dims):
     image = np.asarray(image)
     h, w = image.shape
@@ -38,7 +26,6 @@ def ddsm_crop(image, target_dims):
     x = 0
     normalized_image = (image - image.mean(axis=(-2, -1), keepdims=1)) / image.std(axis=(-2, -1), keepdims=1)
     cropped_image = normalized_image[y - target_dims[0] // 2:y + target_dims[0] // 2, x:x + target_dims[1]]
-    # cropped_image = pad_along_axis(cropped_image, target_length=target_dims[1], axis=1)
     return Image.fromarray(cropped_image)
 
 
@@ -180,7 +167,6 @@ def train(model, train_loader, optimizer, device, epoch, log_interval):
     for (data, target) in train_loader:
         batch_idx += 1
         data, target = Variable(data).to(device), Variable(target).to(device)
-        #print("Working on batch #{} with labels {}".format(batch_idx, target))
         optimizer.zero_grad()
         output = model(data)
         loss = F.cross_entropy(output, target)
@@ -226,15 +212,18 @@ def main():
                         help='random seed (default: 1)')
     parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                         help='how many batches to wait before logging training status (default: 10)')
+    parser.add_argument('--checkpoint', type=str, default="", metavar='C',
+                        help="Provide checkpoint model from which to load weights.")
 
     # Parse arguments
     args = parser.parse_args()
-    # ROOT_DIR = os.getcwd()
     data_dir = args.data
     model_res_dir = args.model_results
     batch_size = args.batch_size
     epochs = args.epochs
     lr = args.lr
+    checkpoint = args.checkpoint
+    train_heads = checkpoint == ""
     log_interval = args.log_interval
     torch.manual_seed(args.seed)
 
@@ -250,12 +239,15 @@ def main():
     val_loader = torch.utils.data.DataLoader(DDSMDataset(data_dir, dataset="val", exclude_brightened=True),
                                              batch_size=batch_size, shuffle=True, num_workers=1)
     # Load model
-    model = MyResNet("resnet18", 3, only_train_heads=True)  # last argument True for stage 1 & False for fine-tuning
+    model = MyResNet("resnet18", 3, only_train_heads=train_heads)
+    if checkpoint != "":
+        state_dict = torch.load(checkpoint) if torch.cuda.is_available() else torch.load(checkpoint, map_location='cpu')
+        model.load_state_dict(state_dict)
     model = model.to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
     # Run training and validation
-    if not os.path.isdir(args.model_results):
+    if not os.path.isdir(model_res_dir):
         print(model_res_dir + " not found: making directory for results")
         os.mkdir(model_res_dir)
     for epoch in range(1, epochs + 1):
