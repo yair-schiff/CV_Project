@@ -56,7 +56,7 @@ def read_masks(case_folder, data_folder, df, img_format=".jpg"):
             mask_image = cv2.imread(os.path.join(mask_folder, f), 0)
             # Flip horizontally if laterality == "R"
             if df.loc[df["File Name"] == int(file_id)]["flipped"].values[0]:
-                image = cv2.flip(image, 1)
+                mask_image = cv2.flip(mask_image, 1)
                 logging.warning("Flipping image with file name: {}.".format(f))
             mask_image = np.array(mask_image, dtype=np.uint8)
             mask_ids[file_id] = img_id
@@ -84,7 +84,7 @@ def main():
     args = parser.parse_args()
 
     cases_folder = args.cases
-    data_folder = args.data
+    data_folder = args.data_unet
     if args.enable_log == "n":
         logging.disable()
 
