@@ -75,9 +75,9 @@ def read_csv(cases_folder):
 
 def main():
     parser = argparse.ArgumentParser(description='Processing INbreast data to COCO format')
-    parser.add_argument('--cases', type=str, default='cases', metavar='C',
+    parser.add_argument('--cases', type=str, default='INbreast/cases', metavar='C',
                         help="Directory where cases reside.")
-    parser.add_argument('--data_unet', type=str, default='data', metavar='D',
+    parser.add_argument('--data_unet', type=str, default='INbreast/data_unet', metavar='D',
                         help="Directory where data are to be saved.")
     parser.add_argument('--enable-log', type=str, default='y', metavar='L',
                         help="Set flag to \'y\' to enable logger (default) and \'n\' to disable logger.")
@@ -93,8 +93,6 @@ def main():
     if not os.path.exists(data_folder):
         logging.warning("Could not find {}. Creating new folder and processing data". format(data_folder))
         os.mkdir(data_folder)
-    if not os.path.exists(os.path.join(data_folder, "annotations")):
-        os.mkdir(os.path.join(data_folder, "annotations"))
     if not os.path.exists(os.path.join(data_folder, "test")):
         os.mkdir(os.path.join(data_folder, "test"))
 
