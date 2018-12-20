@@ -25,24 +25,45 @@ def img_id_increment():
     return temp
 
 
-def read_dicoms(cases_folder, data_folder, df, img_format=".jpg", normalize=True):
+def read_dicoms(cases_folder, data_folder, masks, df, img_format=".jpg", normalize=True):
     dcm_folder = os.path.join(cases_folder, "AllDICOMs")
     for f in os.listdir(dcm_folder):
         if ".dcm" in f:
             file_id = f.split("_")[0]
-            img_id = img_id_increment()
-            output_file = "{:08d}{}".format(img_id, img_format)
-            with pydicom.dcmread(os.path.join(dcm_folder, f)) as dcm_file:
-                image = dcm_file.pixel_array
-                if normalize:
-                    logging.warning("normalizing color, will lose information")
-                    image = cv2.normalize(image, None, 0, 255, norm_type=cv2.NORM_MINMAX)
-                    image = np.uint8(image)
-                    # Flip horizontally if laterality == "R"
-                    if df.loc[df["File Name"] == int(file_id)]["flipped"].values[0]:
-                        image = cv2.flip(image, 1)
-                        logging.warning("Flipping image with file name: {}.".format(f))
+            if file_id in masks:
+                output_file = "{:08d}{}".format(masks[file_id], img_format)
+                with pydicom.dcmread(os.path.join(dcm_folder, f)) as dcm_file:
+                    image = dcm_file.pixel_array
+                    if normalize:
+                        logging.warning("normalizing color, will lose information")
+                        image = cv2.normalize(image, None, 0, 255, norm_type=cv2.NORM_MINMAX)
+                        image = np.uint8(image)
+                        # Flip horizontally if laterality == "R"
+                        if df.loc[df["File Name"] == int(file_id)]["flipped"].values[0]:
+                            image = cv2.flip(image, 1)
+                            logging.warning("Flipping image with file name: {}.".format(f))
                     cv2.imwrite(os.path.join(data_folder, "test", output_file), image)  # save image
+
+
+def read_masks(case_folder, data_folder, df, img_format=".jpg"):
+    mask_ids = {}
+    mask_folder = os.path.join(case_folder, "extras", "MassSegmentationMasks")
+    for f in os.listdir(mask_folder):
+        if ".png" in f:
+            file_id = f.split("_")[0]
+            img_id = img_id_increment()
+            output_file = "{:08d}_mask{}".format(img_id, img_format)
+            mask_image = cv2.imread(os.path.join(mask_folder, f), 0)
+            # Flip horizontally if laterality == "R"
+            if df.loc[df["File Name"] == int(file_id)]["flipped"].values[0]:
+                image = cv2.flip(image, 1)
+                logging.warning("Flipping image with file name: {}.".format(f))
+            mask_image = np.array(mask_image, dtype=np.uint8)
+            mask_ids[file_id] = img_id
+            cv2.imwrite(os.path.join(data_folder, "test", output_file), mask_image)
+            # plt.imshow(resized_image, cmap="gray")
+            # plt.show()
+    return mask_ids
 
 
 def read_csv(cases_folder):
@@ -56,7 +77,7 @@ def main():
     parser = argparse.ArgumentParser(description='Processing INbreast data to COCO format')
     parser.add_argument('--cases', type=str, default='cases', metavar='C',
                         help="Directory where cases reside.")
-    parser.add_argument('--data', type=str, default='data', metavar='D',
+    parser.add_argument('--data_unet', type=str, default='data', metavar='D',
                         help="Directory where data are to be saved.")
     parser.add_argument('--enable-log', type=str, default='y', metavar='L',
                         help="Set flag to \'y\' to enable logger (default) and \'n\' to disable logger.")
@@ -78,7 +99,8 @@ def main():
         os.mkdir(os.path.join(data_folder, "test"))
 
     df = read_csv(cases_folder)
-    read_dicoms(cases_folder, data_folder, df)
+    masks = read_masks(cases_folder, data_folder, df)
+    read_dicoms(cases_folder, data_folder, masks, df)
 
 
 if __name__ == "__main__":

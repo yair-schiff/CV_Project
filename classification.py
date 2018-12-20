@@ -14,8 +14,9 @@ import torchvision.transforms as transforms
 from PIL import Image
 from torch.autograd import Variable
 
-
+# import matplotlib.pyplot as plt
 # import pdb
+
 
 ########################################################################################################################
 # Dataset
@@ -27,6 +28,8 @@ def ddsm_crop(image, target_dims):
     # normalized_image = (image - image.mean(axis=(-2, -1), keepdims=1)) / image.std(axis=(-2, -1), keepdims=1)
     # cropped_image = normalized_image[y - target_dims[0] // 2:y + target_dims[0] // 2, x:x + target_dims[1]]
     cropped_image = image[y - target_dims[0] // 2:y + target_dims[0] // 2, x:x + target_dims[1]]
+    # plt.imshow(cropped_image, cmap="gray")
+    # plt.show()
     return Image.fromarray(cropped_image)
 
 
