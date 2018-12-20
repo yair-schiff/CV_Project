@@ -234,7 +234,7 @@ def main():
     val_loader = torch.utils.data.DataLoader(DDSMDataset(data_dir, dataset="val", exclude_brightened=True),
                                              batch_size=batch_size, shuffle=True, num_workers=1)
     # Load model
-    model = MyResNet("resnet18", 3, only_train_heads=train_heads)
+    model = MyResNet("resnet18", 2, only_train_heads=train_heads)
     if checkpoint != "":
         state_dict = torch.load(checkpoint) if torch.cuda.is_available() else torch.load(checkpoint, map_location='cpu')
         model.load_state_dict(state_dict)
