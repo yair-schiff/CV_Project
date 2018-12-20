@@ -53,36 +53,36 @@ def get_classification(case_name):
         return "malignant"
 
 
-def get_label(name, image_anns):
-    for image in image_anns:
-        if image["file_name"] == name:
-            label = get_classification(image["case_name"])
-            return label
-
-
-def get_brightened(name, image_anns):
-    for image in image_anns:
-        if image["file_name"] == name:
-            return image["brightened"]
+def count_anns_by_id(annotations, image_id):
+    num_anns = 0
+    for annotation in annotations:
+        if annotation["image_id"] == image_id and annotation["segmentation"]:
+            num_anns += 1
+    return num_anns
 
 
 def make_dataset(data_dir, dataset, class_to_idx, exclude_brightened=False):
+    imgs_dir = os.path.join(data_dir, dataset)
+    items = []
     with open(os.path.join(data_dir, "annotations/instances_{}.json".format(dataset)), "r") as annotations:
         ann_json = json.load(annotations)
-        image_anns = ann_json["images"]
-    images = []
-    imgs_dir = os.path.join(data_dir, dataset)
-    for root, _, fnames in sorted(os.walk(imgs_dir)):
-        for fname in sorted(fnames):
-            if "jpg" not in fname:
-                continue
-            path = os.path.join(root, fname)
-            if exclude_brightened and get_brightened(fname, image_anns):
-                continue
-            label = get_label(fname, image_anns)
+        images = ann_json["images"]
+    for image in images:
+        if image["brightened"]:
+            continue
+        if "normal" in image["case_name"]:
+            path = os.path.join(imgs_dir, image["file_name"])
+            label = get_classification(image["case_name"])
             item = (path, class_to_idx[label])
-            images.append(item)
-    return images
+            items.append(item)
+        elif count_anns_by_id(ann_json["annotations"], image["id"]) == 0:
+            continue
+        else:
+            path = os.path.join(imgs_dir, image["file_name"])
+            label = get_classification(image["case_name"])
+            item = (path, class_to_idx[label])
+            items.append(item)
+    return items
 
 
 def greyscale_loader(path):
