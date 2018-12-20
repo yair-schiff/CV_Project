@@ -2,7 +2,7 @@
 
 #SBATCH --verbose
 #SBATCH --job-name=cv_project_data_prep
-#SBATCH --time=144:00:00
+#SBATCH --time=40:00:00
 #SBATCH --nodes=1
 #SBATCH --mem=50GB
 #SBATCH --cpus-per-task=1
@@ -19,7 +19,7 @@ module load anaconda3/4.3.1
 source activate vision_project_data_prep 
 
 # Run the evaluation script
-PYTHONPATH=$PYTHONPATH:. python data.py --cases /scratch/jtb470/DDSM/cases --data /scratch/jtb470/DDSM/data 
+PYTHONPATH=$PYTHONPATH:. python data.py --cases /scratch/yzs208/DDSM/cases --data /scratch/yzs208/DDSM/data_no_normals 
 
 # Close environemnt and purge modules
 source deactivate
