@@ -241,7 +241,7 @@ def main():
     train_loader = torch.utils.data.DataLoader(DDSMDataset(data_dir, dataset="train", exclude_brightened=True),
                                                batch_size=batch_size, shuffle=True, num_workers=1)
     val_loader = torch.utils.data.DataLoader(DDSMDataset(data_dir, dataset="val", exclude_brightened=True),
-                                             batch_size=batch_size, shuffle=True, num_workers=1)
+                                             batch_size=batch_size, shuffle=False, num_workers=1)
     # Load model
     model = MyResNet("resnet18", 3, only_train_heads=train_heads)
     if checkpoint != "":

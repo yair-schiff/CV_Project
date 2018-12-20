@@ -132,7 +132,7 @@ class DDSMDataset(torch.utils.data.Dataset):
 ########################################################################################################################
 # Models
 class MyResNet(nn.Module):
-    def __init__(self, desired_resnet, num_classes, only_train_heads=False):
+    def __init__(self, desired_resnet, num_classes, only_train_heads=False, pretrained=False):
         super(MyResNet, self).__init__()
         resnet_dict = {
             "resnet18": models.resnet18,
@@ -140,7 +140,7 @@ class MyResNet(nn.Module):
             "resnet50": models.resnet50,
             "resnet152": models.resnet152
         }
-        self.model = resnet_dict[desired_resnet](pretrained=True)
+        self.model = resnet_dict[desired_resnet](pretrained=pretrained)
         num_ftrs = 461824  # self.model.fc.in_features
         if only_train_heads:
             for param in self.model.parameters():
@@ -232,9 +232,9 @@ def main():
     train_loader = torch.utils.data.DataLoader(DDSMDataset(data_dir, dataset="train", exclude_brightened=True),
                                                batch_size=batch_size, shuffle=True, num_workers=1)
     val_loader = torch.utils.data.DataLoader(DDSMDataset(data_dir, dataset="val", exclude_brightened=True),
-                                             batch_size=batch_size, shuffle=True, num_workers=1)
+                                             batch_size=batch_size, shuffle=False, num_workers=1)
     # Load model
-    model = MyResNet("resnet18", 2, only_train_heads=train_heads)
+    model = MyResNet("resnet18", 2, only_train_heads=train_heads, pretrained=True)
     if checkpoint != "":
         state_dict = torch.load(checkpoint) if torch.cuda.is_available() else torch.load(checkpoint, map_location='cpu')
         model.load_state_dict(state_dict)

@@ -27,11 +27,15 @@ def img_id_increment():
 
 def read_dicoms(cases_folder, data_folder, df, img_format=".jpg", normalize=True):
     dcm_folder = os.path.join(cases_folder, "AllDICOMs")
+    file_ids = []
+    image_ids = []
     for f in os.listdir(dcm_folder):
         if ".dcm" in f:
             file_id = f.split("_")[0]
             img_id = img_id_increment()
             output_file = "{:08d}{}".format(img_id, img_format)
+            file_ids.append(file_id)
+            image_ids.append(output_file)
             with pydicom.dcmread(os.path.join(dcm_folder, f)) as dcm_file:
                 image = dcm_file.pixel_array
                 if normalize:
@@ -43,6 +47,8 @@ def read_dicoms(cases_folder, data_folder, df, img_format=".jpg", normalize=True
                         image = cv2.flip(image, 1)
                         logging.warning("Flipping image with file name: {}.".format(f))
                     cv2.imwrite(os.path.join(data_folder, "test", output_file), image)  # save image
+    df_file_ids = pd.DataFrame({"file_ids": file_ids, "image_ids": image_ids})
+    df_file_ids.to_csv(os.path.join(cases_folder, "INbreast_file_to_id.csv"), index=False)
 
 
 def read_csv(cases_folder):
