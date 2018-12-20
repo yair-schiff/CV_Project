@@ -10,5 +10,6 @@ ljpeg/
 data/train/_old
 DDSMUserManual.pdf
 INbreast/
+*.out
 *.txt
 !requirements_classify.txt
