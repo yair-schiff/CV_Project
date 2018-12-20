@@ -5,6 +5,7 @@ model_results*
 __pycache__/
 cases/
 data/
+data/annotations/
 ljpeg/
 data/train/_old
 DDSMUserManual.pdf
