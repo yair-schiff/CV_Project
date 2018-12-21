@@ -22,7 +22,7 @@ from torch.autograd import Variable
 # Dataset
 def ddsm_crop(image, target_dims):
     image = np.asarray(image)
-    h, w = image.shape
+    h, w, _ = image.shape
     y = h // 2
     x = 0
     cropped_image = image[y - target_dims[0] // 2:y + target_dims[0] // 2, x:x + target_dims[1]]
@@ -82,9 +82,15 @@ def greyscale_loader(path):
     return img
 
 
+def rgb_loader(path):
+    img = Image.open(open(path,"rb"))
+    rgb_img = img.convert('RGB')
+    return rgb_img
+
+
 class DDSMDataset(torch.utils.data.Dataset):
     def __init__(self, root, dataset="train", transform=default_transform,
-                 target_transform=None, loader=greyscale_loader, exclude_brightened=False):
+                 target_transform=None, loader=rgb_loader, exclude_brightened=False):
         class_to_idx = create_classes()
         samples = make_dataset(root, dataset, class_to_idx, exclude_brightened)
 
@@ -140,11 +146,10 @@ class MyResNet(nn.Module):
             "resnet152": models.resnet152
         }
         self.model = resnet_dict[desired_resnet](pretrained=pretrained)
-        num_ftrs = 461824  # self.model.fc.in_features
+        num_ftrs = 482816  # self.model.fc.in_features
         if only_train_heads:
             for param in self.model.parameters():
                 param.requires_grad = False
-        self.model.conv1 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), bias=False)
         self.model.fc = nn.Linear(num_ftrs, num_classes)
 
     def forward(self, x):
@@ -221,6 +226,11 @@ def main():
     log_interval = args.log_interval
     torch.manual_seed(args.seed)
 
+    # Additional parameters
+    workers = 4
+    momentum = 0.9
+    weight_decay = 0.0001
+
     # Set device
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     if device != torch.device("cpu"):
@@ -229,17 +239,18 @@ def main():
 
     # Load data
     train_loader = torch.utils.data.DataLoader(DDSMDataset(data_dir, dataset="train", exclude_brightened=True),
-                                               batch_size=batch_size, shuffle=True, num_workers=1)
+                                               batch_size=batch_size, shuffle=True, num_workers=workers)
     val_loader = torch.utils.data.DataLoader(DDSMDataset(data_dir, dataset="val", exclude_brightened=True),
-                                             batch_size=batch_size, shuffle=False, num_workers=1)
+                                             batch_size=batch_size, shuffle=False, num_workers=workers)
     # Load model
     # model = MyResNet("resnet18", 2, only_train_heads=train_heads, pretrained=True)
-    model = MyResNet("resnet18", 2, only_train_heads=False, pretrained=False)
+    model = MyResNet("resnet18", 2, only_train_heads=False, pretrained=True)
     if checkpoint != "":
         state_dict = torch.load(checkpoint) if torch.cuda.is_available() else torch.load(checkpoint, map_location='cpu')
         model.load_state_dict(state_dict)
     model = model.to(device)
-    optimizer = optim.Adam(model.parameters(), lr=lr)
+    optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
+    # optimizer = optim.Adam(model.parameters(), lr=lr)
 
     # Run training and validation
     if not os.path.isdir(model_res_dir):
