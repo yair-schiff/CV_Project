@@ -140,7 +140,7 @@ class DDSMDataset(torch.utils.data.Dataset):
 ########################################################################################################################
 # Models
 class MyResNet(nn.Module):
-    def __init__(self, desired_resnet, num_classes, only_train_heads=False, pretrained=False, grayscale=False):
+    def __init__(self, desired_resnet, num_classes, only_train_heads=False, pretrained=False, grayscale=False, testing=False):
         super(MyResNet, self).__init__()
         resnet_dict = {
             "resnet18": models.resnet18,
@@ -149,6 +149,7 @@ class MyResNet(nn.Module):
             "resnet152": models.resnet152
         }
         self.model = resnet_dict[desired_resnet](pretrained=pretrained)
+        self.testing = testing
         num_ftrs = 482816  # self.model.fc.in_features
         if only_train_heads:
             for param in self.model.parameters():
@@ -160,6 +161,8 @@ class MyResNet(nn.Module):
 
     def forward(self, x):
         output = self.model(x)
+        if self.testing:
+            output = torch.nn.Softmax(output)
         return output
 
 

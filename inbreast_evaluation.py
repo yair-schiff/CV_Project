@@ -92,7 +92,7 @@ def evaluate(model, test_loader, device):
         with torch.no_grad():
             data, target = Variable(data).to(device), Variable(target).to(device)
         output = model(data)
-        prob = torch.nn.functional.softmax(output)[0][1]
+        prob = output
         pred = output.data.max(1, keepdim=True)[1]  # get the index of the max log-probability
         pred_data = pred.item()
         target_data = target.item()
