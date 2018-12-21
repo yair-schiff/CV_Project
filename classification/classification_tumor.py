@@ -36,7 +36,8 @@ CROP_SIZE = (1500, 900)
 default_transform = transforms.Compose([transforms.Resize((2048, 1024)),
                                         transforms.Lambda(lambda img: ddsm_crop(img, CROP_SIZE)),
                                         transforms.ToTensor()])
-
+alexnet_transform = transforms.Compose([transforms.Resize((224, 224)),
+                                        transforms.ToTensor()])
 
 def create_classes():
     class_to_idx = {"normal": 0, "mass": 1}
@@ -162,6 +163,20 @@ class MyResNet(nn.Module):
         output = self.model(x)
         return output
 
+class DDSMAlexNet(nn.Module):
+    def __init__(self, num_classes, only_train_heads=False, pretrained=False):
+        super(DDSMAlexNet, self).__init__()
+        self.model = models.alexnet(pretrained=pretrained)
+        num_ftrs = 4096
+        if only_train_heads:
+            for param in self.model.parameters():
+                param.requires_grad = False
+        self.model.features[0] = nn.Conv2d(1, 64, kernel_size=11, stride=4, padding=2)
+        self.model.classifier[6] = nn.Linear(num_ftrs, num_classes)
+
+    def forward(self, x):
+        output = self.model(x)
+        return output
 
 ########################################################################################################################
 # Training & Validation
