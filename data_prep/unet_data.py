@@ -1,17 +1,19 @@
 # External dependencies
 from __future__ import print_function
+
 import argparse
-import cv2
 import glob
 import gzip
-import json
 import logging
 import os
 import re
 import shutil
 import subprocess
 import sys
+
+import cv2
 import numpy as np
+
 # import matplotlib.pyplot as plt
 
 # Global variables

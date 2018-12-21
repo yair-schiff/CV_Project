@@ -6,5 +6,6 @@ ljpeg/
 old_bash_scripts/
 data_prep/ljpeg/
 model_results*
+old_bash_scripts/
 *.txt
 !requirements*
