@@ -8,6 +8,7 @@ modified slightly to enable the repository from which they were taken to be used
 with the DDSM data. `ddsm.py` is the file that represents the greatest departure from the repository above, as it was created to encapsulate the DDSM data as an object and closely align to COCO Dataset behavior. Much of the DDSM dataset functionality relies heavily on some of the COCO Python APIs.
 
 ## Requirements
+- `python3.6`
 - `pip`
 
 To install the other requirements use
