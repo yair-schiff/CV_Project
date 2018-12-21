@@ -22,7 +22,10 @@ from torch.autograd import Variable
 # Dataset
 def ddsm_crop(image, target_dims):
     image = np.asarray(image)
-    h, w, _ = image.shape
+    if image.ndim == 3:
+        h, w, _ = image.shape
+    else:
+        h, w = image.shape
     y = h // 2
     x = 0
     cropped_image = image[y - target_dims[0] // 2:y + target_dims[0] // 2, x:x + target_dims[1]]
