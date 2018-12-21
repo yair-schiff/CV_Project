@@ -4,6 +4,7 @@
 This directory contains scripts that were used to process DDSM and INbreast data for use in classification and segmentation tasks.
 
 ## Requirements
+- `python3.6`
 - `pip`
 - `ljpeg` directory: https://github.com/nicholaslocascio/ljpeg-ddsm (follow directions there to clone and compile necessary files)
 To install the required packages use:
