@@ -22,7 +22,7 @@ source activate vision_project_classify
 #v3: Use all images no pre-trained and train all layers
 #v4: Use params specified in https://github.com/jimmyyhwu/ddsm-visual-primitives: SGD, pretrained, RGB, etc
 # Run classification training 
-PYTHONPATH=$PYTHONPATH:. python /scratch/yzs208/CV_Project/classification_tumor.py  --data /scratch/jtb470/DDSM/data --model-results /scratch/yzs208/CV_Project/model_results_tumor_v4 --lr 0.0001 --batch-size 32 --epochs 100  
+PYTHONPATH=$PYTHONPATH:. python /scratch/yzs208/CV_Project/classification_tumor.py  --data /scratch/jtb470/DDSM/data --model-results /scratch/yzs208/CV_Project/model_results_tumor_v4 --lr 0.0001 --batch-size 16 --epochs 100  
 
 # Close environemnt and purge modules
 source deactivate

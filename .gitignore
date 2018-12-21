@@ -12,4 +12,5 @@ DDSMUserManual.pdf
 INbreast/
 *.out
 *.txt
+*.sh
 !requirements_classify.txt
