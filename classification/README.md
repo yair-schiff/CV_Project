@@ -4,6 +4,7 @@
 The files in this directory enable the training and evaluation of architectures used to classify the DDSM dataset and evaluate the INbreast dataset.
 
 ## Requirements
+- `python3.6`
 - `pip`
 
 To install the necessary packages use:
