@@ -1,7 +1,7 @@
 # External dependencies
 from __future__ import print_function
+
 import argparse
-import cv2
 import glob
 import gzip
 import json
@@ -11,8 +11,11 @@ import re
 import shutil
 import subprocess
 import sys
+
+import cv2
 import numpy as np
 from shapely.geometry import shape
+
 # import matplotlib.pyplot as plt
 
 # Global variables

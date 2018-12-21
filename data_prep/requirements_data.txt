@@ -1,0 +1,6 @@
+cv2
+matplotlib
+numpy
+pandas
+pydicom
+shapely
