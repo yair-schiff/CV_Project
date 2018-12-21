@@ -2,5 +2,9 @@
 .DS_Store
 .ipynb_checkpoints/
 __pycache__/
+ljpeg/
 old_bash_scripts/
 data_prep/ljpeg/
+model_results*
+*.txt
+!requirements.txt
