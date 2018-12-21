@@ -22,4 +22,4 @@ The classification can also be run using the Jupyter notebook. To use either of 
 To evaluate the model on INbreast data use the `inbreast_evaluation.py` script, which will classify the images in this test set as having a mass or not. (NOTE: this script is not currently capable of classifying INbreast data into `benign`, `malignant`, and `normal` classes).
 
 The script will evaluate each image in the training set, as well as produce a Precision-Recall curve and the AUC score:
-[precision_recall_curve]: https://github.com/yair-schiff/CV_Project/blob/master/classification/resnet_pr_curve.png "Precison/Recall Curve"
+![precision_recall_curve](resnet_pr_curve.png "Precison/Recall Curve")
