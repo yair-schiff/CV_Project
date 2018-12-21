@@ -92,7 +92,7 @@ def evaluate(model, test_loader, device):
         with torch.no_grad():
             data, target = Variable(data).to(device), Variable(target).to(device)
         output = model(data)
-        prob = output
+        prob = output.data.max(1, keepdim=True)[1]  # get the index of the max log-probability 
         pred = output.data.max(1, keepdim=True)[1]  # get the index of the max log-probability
         pred_data = pred.item()
         target_data = target.item()
@@ -105,7 +105,7 @@ def evaluate(model, test_loader, device):
         else:
             false_negatives += 1
         y_true.append(target_data)
-        y_pred.append(prob)
+        y_pred.append(prob.cpu())
         right_or_wrong = "correct" if pred_data == target_data else "wrong"
         print("Image {}: True label = {}; Predicted Label = {}. Got this image {}".format(image_idx, target_data, pred_data,
                                                                                           right_or_wrong))
