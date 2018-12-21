@@ -3,8 +3,11 @@ from __future__ import print_function
 import argparse
 import os
 
+import matplotlib.pyplot as plt
 import pandas as pd
 import torch
+from sklearn.metrics import precision_recall_curve
+from sklearn.metrics import roc_auc_score
 from torch.autograd import Variable
 
 # Internal dependencies
@@ -14,13 +17,11 @@ from classification_tumor import create_classes, default_transform, greyscale_lo
 
 ########################################################################################################################
 # Dataset - INbreast
-def make_dataset(data_dir, dataset, class_to_idx, cases):
+def make_dataset(data_dir, dataset, cases):
     items = []
     imgs_dir = os.path.join(data_dir, dataset)
     df_masks = pd.read_csv(os.path.join(cases, "INbreast_mask.csv"))
     df_files_to_ids = pd.read_csv(os.path.join(cases, "INbreast_file_to_id.csv"))
-    print(df_files_to_ids.head(10))
-    print(df_files_to_ids["file_ids"])
     mask_dict = dict(zip(list(df_masks["File Name"]), list(df_masks["Mask"])))
     files_dict = dict(zip(list(df_files_to_ids["image_ids"]), list(df_files_to_ids["file_ids"])))
     for img_id, file_id in files_dict.items():
@@ -33,7 +34,7 @@ class INbreast(torch.utils.data.Dataset):
     def __init__(self, root, cases, dataset="test", transform=default_transform,
                  target_transform=None, loader=greyscale_loader):
         class_to_idx = create_classes()
-        samples = make_dataset(root, dataset, class_to_idx, cases)
+        samples = make_dataset(root, dataset, cases)
 
         self.root = root
         self.loader = loader
@@ -80,16 +81,51 @@ class INbreast(torch.utils.data.Dataset):
 def evaluate(model, test_loader, device):
     model.eval()
     image_idx = 0
+    true_positives = 0
+    true_negatives = 0
+    false_positives = 0
+    false_negatives = 0
+    y_true = []
+    y_pred = []
     for data, target in test_loader:
         image_idx += 1
         with torch.no_grad():
             data, target = Variable(data).to(device), Variable(target).to(device)
         output = model(data)
+        prob = torch.nn.functional.softmax(output)[0][1]
         pred = output.data.max(1, keepdim=True)[1]  # get the index of the max log-probability
-        right_or_wrong = "correct" if pred == output else "wrong"
-        print("Image {}: True label = {}; Predicted Label = {}. Got this image {}".format(image_idx, target, pred,
+        pred_data = pred.item()
+        target_data = target.item()
+        if pred_data == 0 and target_data == 0:
+            true_negatives += 1
+        elif pred_data == 1 and target_data == 1:
+            true_positives += 1
+        elif pred_data == 1 and target_data == 0:
+            false_positives += 1
+        else:
+            false_negatives += 1
+        y_true.append(target_data)
+        y_pred.append(prob)
+        right_or_wrong = "correct" if pred_data == target_data else "wrong"
+        print("Image {}: True label = {}; Predicted Label = {}. Got this image {}".format(image_idx, target_data, pred_data,
                                                                                           right_or_wrong))
 
+    precision, recall, thresholds = precision_recall_curve(y_true, y_pred)
+    plt.plot(recall, precision)
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.ylim([0.0, 1.05])
+    plt.xlim([0.0, 1.05])
+    plt.title('Precision-Recall Curve')
+    plt.savefig('pr_curve.png')
+    auc = roc_auc_score(y_true, y_pred)
+    print("TP: {}".format(true_positives))
+    print("TN: {}".format(true_negatives))
+    print("FP: {}".format(false_positives))
+    print("FN: {}".format(false_negatives))
+    print("Precision: {}".format(true_positives / (true_positives + false_positives)))
+    print("Recall: {}".format(true_positives / (true_positives + false_negatives)))
+    print("AUC: {}".format(auc))
 
 def main():
     parser = argparse.ArgumentParser(description='PyTorch INbreast Evaluation')

@@ -25,11 +25,7 @@ def ddsm_crop(image, target_dims):
     h, w = image.shape
     y = h // 2
     x = 0
-    # normalized_image = (image - image.mean(axis=(-2, -1), keepdims=1)) / image.std(axis=(-2, -1), keepdims=1)
-    # cropped_image = normalized_image[y - target_dims[0] // 2:y + target_dims[0] // 2, x:x + target_dims[1]]
     cropped_image = image[y - target_dims[0] // 2:y + target_dims[0] // 2, x:x + target_dims[1]]
-    # plt.imshow(cropped_image, cmap="gray")
-    # plt.show()
     return Image.fromarray(cropped_image)
 
 
@@ -59,7 +55,7 @@ def make_dataset(data_dir, dataset, class_to_idx, exclude_brightened=False):
         ann_json = json.load(annotations)
         images = ann_json["images"]
     for image in images:
-        if image["brightened"]:
+        if image["brightened"] and exclude_brightened:
             continue
         if "normal" in image["case_name"]:
             path = os.path.join(imgs_dir, image["file_name"])
@@ -67,7 +63,10 @@ def make_dataset(data_dir, dataset, class_to_idx, exclude_brightened=False):
             item = (path, class_to_idx[label])
             items.append(item)
         elif count_anns_by_id(ann_json["annotations"], image["id"]) == 0:
-            continue
+            path = os.path.join(imgs_dir, image["file_name"])
+            label = "normal"
+            item = (path, class_to_idx[label])
+            items.append(item)
         else:
             path = os.path.join(imgs_dir, image["file_name"])
             label = "mass"
@@ -234,7 +233,7 @@ def main():
     val_loader = torch.utils.data.DataLoader(DDSMDataset(data_dir, dataset="val", exclude_brightened=True),
                                              batch_size=batch_size, shuffle=False, num_workers=1)
     # Load model
-    #model = MyResNet("resnet18", 2, only_train_heads=train_heads, pretrained=True)
+    # model = MyResNet("resnet18", 2, only_train_heads=train_heads, pretrained=True)
     model = MyResNet("resnet18", 2, only_train_heads=False, pretrained=False)
     if checkpoint != "":
         state_dict = torch.load(checkpoint) if torch.cuda.is_available() else torch.load(checkpoint, map_location='cpu')
