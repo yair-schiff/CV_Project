@@ -137,7 +137,7 @@ class DDSMDataset(torch.utils.data.Dataset):
 ########################################################################################################################
 # Models
 class MyResNet(nn.Module):
-    def __init__(self, desired_resnet, num_classes, only_train_heads=False, pretrained=False):
+    def __init__(self, desired_resnet, num_classes, only_train_heads=False, pretrained=False, grayscale=False):
         super(MyResNet, self).__init__()
         resnet_dict = {
             "resnet18": models.resnet18,
@@ -150,6 +150,9 @@ class MyResNet(nn.Module):
         if only_train_heads:
             for param in self.model.parameters():
                 param.requires_grad = False
+        if grayscale:
+            num_ftrs = 461824
+            self.model.conv1 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), bias=False)
         self.model.fc = nn.Linear(num_ftrs, num_classes)
 
     def forward(self, x):

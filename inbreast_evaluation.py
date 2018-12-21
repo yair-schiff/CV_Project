@@ -155,7 +155,7 @@ def main():
     test_loader = torch.utils.data.DataLoader(INbreast(data_dir, cases_dir, dataset="test"),
                                               batch_size=1, shuffle=False, num_workers=1)
     # Load model
-    model = MyResNet("resnet18", 2, only_train_heads=False, pretrained=False)
+    model = MyResNet("resnet18", 2, only_train_heads=False, pretrained=False, grayscale=True)
     state_dict = torch.load(model_path) if torch.cuda.is_available() else torch.load(model_path, map_location='cpu')
     model.load_state_dict(state_dict)
     model = model.to(device)

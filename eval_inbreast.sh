@@ -21,7 +21,7 @@ source activate vision_project_classify
 #v2: No pre-trained weights and train all layers 
 #v3: Use all images no pre-trained and train all layers
 # Run classification training 
-PYTHONPATH=$PYTHONPATH:. python /scratch/yzs208/CV_Project/inbreast_evaluation.py  --cases /scratch/yzs208/INbreast/cases --data /scratch/yzs208/INbreast/data_classify --model /scratch/yzs208/CV_Project/model_results_tumor_v3/model_stage1_4.pth 
+PYTHONPATH=$PYTHONPATH:. python /scratch/yzs208/CV_Project/inbreast_evaluation.py  --cases /scratch/yzs208/INbreast/cases --data /scratch/yzs208/INbreast/data_classify --model /scratch/yzs208/CV_Project/model_results_tumor_v3/model_stage1_20.pth 
 
 # Close environemnt and purge modules
 source deactivate
