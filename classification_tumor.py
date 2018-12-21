@@ -67,7 +67,10 @@ def make_dataset(data_dir, dataset, class_to_idx, exclude_brightened=False):
             item = (path, class_to_idx[label])
             items.append(item)
         elif count_anns_by_id(ann_json["annotations"], image["id"]) == 0:
-            continue
+            path = os.path.join(imgs_dir, image["file_name"])
+            label = "normal"
+            item = (path, class_to_idx[label])
+            items.append(item)
         else:
             path = os.path.join(imgs_dir, image["file_name"])
             label = "mass"

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH --verbose
-#SBATCH --job-name=v3_classify_tumor_cv_project
+#SBATCH --job-name=eval_tumor_cv_project
 #SBATCH --time=30:00:00
 #SBATCH --nodes=1
 #SBATCH --mem=100GB
@@ -9,7 +9,7 @@
 #SBATCH --mail-type=BEGIN
 #SBATCH --mail-type=END
 #SBATCH --mail-user=yzs208@nyu.edu
-#SBATCH --output=v3_classify_tumor_cv_project.out.txt
+#SBATCH --output=eval_tumor_v3_cv_project.out.txt
 
 # Load modules
 module purge
@@ -21,7 +21,7 @@ source activate vision_project_classify
 #v2: No pre-trained weights and train all layers 
 #v3: Use all images no pre-trained and train all layers
 # Run classification training 
-PYTHONPATH=$PYTHONPATH:. python /scratch/yzs208/CV_Project/classification_tumor.py  --data /scratch/jtb470/DDSM/data --model-results /scratch/yzs208/CV_Project/model_results_tumor_v3 --lr 0.001 --batch-size 2 --epochs 20  
+PYTHONPATH=$PYTHONPATH:. python /scratch/yzs208/CV_Project/inbreast_evaluation.py  --cases /scratch/yzs208/INbreast/cases --data /scratch/yzs208/INbreast/data_classify --model /scratch/yzs208/CV_Project/model_results_tumor_v3/model_stage1_4.pth 
 
 # Close environemnt and purge modules
 source deactivate
