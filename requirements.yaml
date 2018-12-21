@@ -1,8 +1,0 @@
-name: vision_project
-dependencies:
-  - python==3.6.5
-  - numpy
-  - matplotlib
-  - nb_conda
-  - pip:
-    - opencv-python
