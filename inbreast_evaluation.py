@@ -17,10 +17,12 @@ from classification_tumor import create_classes, default_transform, greyscale_lo
 def make_dataset(data_dir, dataset, class_to_idx, cases):
     items = []
     imgs_dir = os.path.join(data_dir, dataset)
-    df_masks = pd.DataFrame.from_csv(os.path.join(cases, "INbreast_mask.csv"))
-    df_files_to_ids = pd.DataFrame.from_csv(os.path.join(cases, "INbreast_file_to_id.csv"))
+    df_masks = pd.read_csv(os.path.join(cases, "INbreast_mask.csv"))
+    df_files_to_ids = pd.read_csv(os.path.join(cases, "INbreast_file_to_id.csv"))
+    print(df_files_to_ids.head(10))
+    print(df_files_to_ids["file_ids"])
     mask_dict = dict(zip(list(df_masks["File Name"]), list(df_masks["Mask"])))
-    files_dict = dict(zip(list(df_files_to_ids["image_ids"])), list(df_files_to_ids["file_ids"]))
+    files_dict = dict(zip(list(df_files_to_ids["image_ids"]), list(df_files_to_ids["file_ids"])))
     for img_id, file_id in files_dict.items():
         item = (os.path.join(imgs_dir, img_id), mask_dict[file_id])
         items.append(item)
@@ -114,7 +116,7 @@ def main():
     print("Device: {}".format(device))
 
     # Load data
-    test_loader = torch.utils.data.DataLoader(INbreast(data_dir, cases_dir, dataset="test", exclude_brightened=True),
+    test_loader = torch.utils.data.DataLoader(INbreast(data_dir, cases_dir, dataset="test"),
                                               batch_size=1, shuffle=False, num_workers=1)
     # Load model
     model = MyResNet("resnet18", 2, only_train_heads=False, pretrained=False)

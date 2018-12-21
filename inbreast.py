@@ -53,7 +53,7 @@ def read_dicoms(cases_folder, data_folder, df, img_format=".jpg", normalize=True
 
 def read_csv(cases_folder):
     csv_file = os.path.join(cases_folder, "INbreast.csv")
-    df = pd.DataFrame.from_csv(csv_file, header=0, sep=";")
+    df = pd.read_csv(csv_file, header=0, sep=";")
     df["flipped"] = [flipped for flipped in df["Laterality"] == "R"]
     return df
 
