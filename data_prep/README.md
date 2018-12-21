@@ -1,4 +1,4 @@
-# Data Pre-processing
+# Data Preprocessing
 
 ## Overview
 This directory contains scripts that were used to process DDSM and INbreast data for use in classification and segmentation tasks.
